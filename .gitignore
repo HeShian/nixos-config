@@ -10,5 +10,4 @@ result-*
 
 # direnv
 .direnv/
-.envrc
 # Machine-specific (not tracked)
