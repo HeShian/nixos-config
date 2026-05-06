@@ -79,3 +79,14 @@ sudo nix flake update
 - XDG Desktop Portal 使用 GNOME 后端 (xdg-desktop-portal-gnome + gtk 回退)
 - Qt 平台主题通过 niri 环境变量 `QT_QPA_PLATFORMTHEME=gtk3` 控制
 - 蓝牙在 `hardware.nix` 中配置，由 DMS 通过 bluez 直接管理（未安装 blueman）
+
+## Git 仓库
+
+git 仓库位于 `/home/claudia/nixos-config/`，`/etc/nixos` 是指向该目录的符号链接。
+这样做的原因是 `nixos-rebuild switch` 在 `setting up /etc` 阶段会清除 `/etc/nixos/.git`，
+将仓库放在 `~/` 下可避免被清除。
+
+- 仓库 URL: `https://github.com/HeShian/nixos-config.git`
+- 分支: `main`
+- `hardware-configuration.nix` 已提交作为参考，但**每台机器需重新生成**：
+  `sudo nixos-generate-config --show-hardware-config > hosts/westwood/hardware-configuration.nix`
