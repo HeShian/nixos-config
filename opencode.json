@@ -1,0 +1,21 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": [
+     "oh-my-openagent"    
+  ],
+  "mcp": {
+    "nixos": {
+      "type": "local",
+      "command": [
+        "uvx",
+        "mcp-nixos"
+      ],
+      "enabled": true
+    }
+  },
+  "skills": {
+    "sources": [
+      "~/.config/opencode/skills"
+    ]
+  }
+}

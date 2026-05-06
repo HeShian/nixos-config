@@ -1,0 +1,16 @@
+# Nix build artifacts
+result
+result-*
+
+# Editor/OS junk
+*.swp
+*.swo
+*~
+.DS_Store
+
+# direnv
+.direnv/
+.envrc
+
+# Machine-specific hardware config
+hosts/westwood/hardware-configuration.nix
