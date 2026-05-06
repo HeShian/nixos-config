@@ -11,6 +11,4 @@ result-*
 # direnv
 .direnv/
 .envrc
-
-# Machine-specific hardware config
-hosts/westwood/hardware-configuration.nix
+# Machine-specific (not tracked)
