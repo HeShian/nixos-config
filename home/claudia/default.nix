@@ -282,6 +282,7 @@
       Type = "oneshot";
       ExecStart = "${config.home.homeDirectory}/.local/bin/dms-fcitx5-sync";
     };
+    Install = { WantedBy = [ "default.target" ]; };
   };
 
   systemd.user.paths.dms-fcitx5-sync = {
@@ -290,6 +291,245 @@
       PathModified = [
         "%h/.cache/DankMaterialShell/dms-colors.json"
         "%h/.local/state/DankMaterialShell/dms-colors.json"
+        "%h/.local/state/DankMaterialShell/session.json"
+      ];
+    };
+    Install = { WantedBy = [ "default.target" ]; };
+  };
+
+  # ============================================================================
+  # fcitx5 classicui 主题 —— 锁定为 DMS 动态配色
+  #   写入 classicui.conf 后将文件设为不可变（chattr +i），防止 fcitx5
+  #   运行时配置工具覆盖 Theme 设置。重建时先移除不可变标记再写入。
+  # ============================================================================
+  home.activation.lockFcitx5ClassicuiTheme = lib.hm.dag.entryAfter ["writeBoundary"] ''
+    CFG="/home/claudia/.config/fcitx5/conf/classicui.conf"
+    mkdir -p "$(dirname "$CFG")"
+    ${pkgs.e2fsprogs}/bin/chattr -i "$CFG" 2>/dev/null || true
+    cat > "$CFG" <<- 'THEMEEOF'
+# 注意：首行 Theme=dms 必须无 section 头，因为 fcitx5-gtk 的 ClassicUIConfig
+# 将此文件内容包裹在 [Group] 下解析，若首行是 [Config]，Theme 会落在
+# [Config] 段而非 [Group]，导致 GTK IM 模块主题回退为 default。
+
+# 下面的 [Config] 段供 fcitx5-daemon 的 classicui 插件使用（标准 fcitx5 配置格式）。
+# 两个 Theme 指向同一个 dms 主题，确保终端和 GTK 应用配色一致。
+Theme=dms
+
+[Config]
+# DMS 动态主题（由 DMS matugen 模板生成）
+# 路径: ~/.local/share/fcitx5/themes/dms/theme.conf
+Theme=dms
+THEMEEOF
+    ${pkgs.e2fsprogs}/bin/chattr +i "$CFG" 2>/dev/null || true
+  '';
+
+  # ============================================================================
+  # fcitx5 禁用冲突的 UI 插件 —— 确保所有输入法前端都使用 classicui 渲染
+  #
+  #   禁用 KDE Input Method Panel 和 DBus Virtual Keyboard，
+  #   强制所有前端（wayland、dbus、xcb）统一使用 Classic User Interface。
+  # ============================================================================
+  home.activation.disableFcitx5ConflictUI = lib.hm.dag.entryAfter ["writeBoundary"] ''
+    FCITX_CFG="/home/claudia/.config/fcitx5/config"
+    mkdir -p "$(dirname "$FCITX_CFG")"
+
+    if [ ! -f "$FCITX_CFG" ]; then
+      cat > "$FCITX_CFG" <<- 'FCITXEOF'
+[Behavior]
+DisabledAddons=kimpanel,virtualkeyboard
+FCITXEOF
+    else
+      if grep -q "^\[Behavior\]" "$FCITX_CFG"; then
+        if grep -q "^DisabledAddons=" "$FCITX_CFG"; then
+          ${pkgs.gawk}/bin/awk -i inplace '
+            BEGIN { FS=OFS="=" }
+            /^DisabledAddons=/ {
+              split($2, arr, ",")
+              has_kim=0; has_vk=0
+              for (i in arr) {
+                gsub(/^[ \t]+|[ \t]+$/, "", arr[i])
+                if (arr[i]=="kimpanel") has_kim=1
+                if (arr[i]=="virtualkeyboard") has_vk=1
+              }
+              new_list=$2
+              if (!has_kim) new_list = (new_list ? new_list "," : "") "kimpanel"
+              if (!has_vk) new_list = (new_list ? new_list "," : "") "virtualkeyboard"
+              gsub(/^,/, "", new_list)
+              $0 = "DisabledAddons=" new_list
+            }
+            { print }
+          ' "$FCITX_CFG"
+        else
+          ${pkgs.gawk}/bin/awk -i inplace '
+            /^\[Behavior\]/ { print; print "DisabledAddons=kimpanel,virtualkeyboard"; next }
+            { print }
+          ' "$FCITX_CFG"
+        fi
+      else
+        cat >> "$FCITX_CFG" <<- 'FCITXEOF'
+
+[Behavior]
+DisabledAddons=kimpanel,virtualkeyboard
+FCITXEOF
+      fi
+    fi
+  '';
+
+
+  # ============================================================================
+  # Fuzzel 应用启动器 —— DMS 动态配色适配
+  #
+  #   DMS 会根据壁纸生成动态主题色，但 fuzzel 使用独立的配置格式，
+  #   默认不会跟随 DMS 主题色变化。
+  #
+  #   本配置通过以下两层机制确保 fuzzel 配色始终与 DMS 保持一致：
+  #
+  #   1. DMS matugen 模板（runUserMatugenTemplates）：DMS 切换壁纸时自动渲染
+  #      fuzzel.ini，写入 CONFIG_DIR/fuzzel/，使颜色变量随壁纸更新。
+  #   2. systemd path 监听 + 同步脚本：当 DMS 的配色文件变化时，通过脚本
+  #      重新生成 fuzzel.ini，作为实时变化的二次保障。
+  # ============================================================================
+  #
+  # 配色映射关系（Material Design → fuzzel）：
+  #   background      = surface_container_low    # 窗口背景色
+  #   text            = on_surface               # 未选中条目文字
+  #   message         = on_surface_variant       # 消息文字
+  #   prompt          = primary                  # 提示符
+  #   placeholder     = outline                  # 占位符文字
+  #   input           = on_surface               # 输入文字
+  #   match           = primary                  # 匹配高亮
+  #   selection       = primary_container        # 选中条目背景
+  #   selection-text  = on_primary_container     # 选中条目文字
+  #   selection-match = primary                  # 选中条目的匹配高亮
+  #   counter         = on_surface_variant       # 计数统计
+  #   border          = outline_variant          # 边框色
+  # ============================================================================
+
+  # DMS 用户 matugen 模板配置 —— 定义 fuzzel 配置的输出路径
+  home.file.".config/dms/templates/fuzzel.toml" = {
+    text =
+''
+      [templates.dmsfuzzel]
+      input_path = 'CONFIG_DIR/dms/templates/fuzzel.ini'
+      output_path = 'CONFIG_DIR/fuzzel/fuzzel.ini'
+''
+    ;
+    force = true;
+  };
+
+  # DMS matugen 模板 —— fuzzel 启动器配色
+  home.file.".config/dms/templates/fuzzel.ini" = {
+    text =
+''
+      [main]
+      font=JetBrainsMono Nerd Font:size=14
+      prompt=>
+      lines=12
+      width=50
+      horizontal-pad=30
+      vertical-pad=12
+      inner-pad=6
+      icon-theme=Adwaita
+      layer=overlay
+      anchor=center
+
+      [border]
+      width=2
+      radius=12
+
+      [colors]
+      background={{colors.surface_container_low.default.hex}}
+      text={{colors.on_surface.default.hex}}
+      message={{colors.on_surface_variant.default.hex}}
+      prompt={{colors.primary.default.hex}}
+      placeholder={{colors.outline.default.hex}}
+      input={{colors.on_surface.default.hex}}
+      match={{colors.primary.default.hex}}
+      selection={{colors.primary_container.default.hex}}
+      selection-text={{colors.on_primary_container.default.hex}}
+      selection-match={{colors.primary.default.hex}}
+      counter={{colors.on_surface_variant.default.hex}}
+      border={{colors.outline_variant.default.hex}}
+''
+    ;
+    force = true;
+  };
+
+  # DMS → fuzzel 配色自动同步
+  #
+  #   当 DMS 更新配色文件时，自动重写 fuzzel.ini，使应用启动器的配色
+  #   始终匹配当前壁纸提取的 DMS 动态配色。
+  #   由于 fuzzel 每次启动时重新读取配置，无需发送重载信号。
+  # ============================================================================
+
+  home.file."${config.home.homeDirectory}/.local/bin/dms-fuzzel-sync" = {
+    executable = true;
+    source = pkgs.writeShellScript "dms-fuzzel-sync" ''
+      DMS_CLR="${config.home.homeDirectory}/.cache/DankMaterialShell/dms-colors.json"
+      DMS_SES="${config.home.homeDirectory}/.local/state/DankMaterialShell/session.json"
+      OUT_DIR="${config.home.homeDirectory}/.config/fuzzel"
+      OUT="$OUT_DIR/fuzzel.ini"
+
+      [[ -f "$DMS_CLR" && -f "$DMS_SES" ]] || exit 0
+
+      IS_LIGHT=$(${pkgs.jq}/bin/jq -r '.isLightMode // true' < "$DMS_SES")
+      SCHEME=$([ "$IS_LIGHT" = "true" ] && echo "light" || echo "dark")
+      c() { ${pkgs.jq}/bin/jq -r ".colors.$SCHEME.$1 // \"#000000\"" < "$DMS_CLR"; }
+
+      # 将 #RRGGBB 转为 RRGGBBFF（fuzzel 使用 8 位 RGBA 格式，不含 # 前缀）
+      cf() { printf '%sff\n' "$(c "$1" | sed 's/^#//')"; }
+
+      mkdir -p "$OUT_DIR"
+
+      cat > "$OUT" << XXXX
+      [main]
+      font=JetBrainsMono Nerd Font:size=14
+      prompt=>
+      lines=12
+      width=50
+      horizontal-pad=30
+      vertical-pad=12
+      inner-pad=6
+      icon-theme=Adwaita
+      layer=overlay
+      anchor=center
+
+      [border]
+      width=2
+      radius=12
+
+      [colors]
+      background=$(cf surface_container_low)
+      text=$(cf on_surface)
+      message=$(cf on_surface_variant)
+      prompt=$(cf primary)
+      placeholder=$(cf outline)
+      input=$(cf on_surface)
+      match=$(cf primary)
+      selection=$(cf primary_container)
+      selection-text=$(cf on_primary_container)
+      selection-match=$(cf primary)
+      counter=$(cf on_surface_variant)
+      border=$(cf outline_variant)
+      XXXX
+    '';
+  };
+
+  systemd.user.services.dms-fuzzel-sync = {
+    Unit = { Description = "Sync DMS wallpaper colors to fuzzel theme"; };
+    Service = {
+      Type = "oneshot";
+      ExecStart = "${config.home.homeDirectory}/.local/bin/dms-fuzzel-sync";
+    };
+  };
+
+  systemd.user.paths.dms-fuzzel-sync = {
+    Unit = { Description = "Watch DMS colors and sync to fuzzel theme"; };
+    Path = {
+      PathModified = [
+        "%h/.cache/DankMaterialShell/dms-colors.json"
+        "%h/.local/state/DankMaterialShell/dms-colors.json"
+        "%h/.local/state/DankMaterialShell/session.json"
       ];
     };
     Install = { WantedBy = [ "default.target" ]; };
