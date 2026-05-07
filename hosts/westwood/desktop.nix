@@ -28,6 +28,22 @@
   };
 
   # ============================================================================
+  # GSettings 架构路径
+  #
+  #   NixOS 将 gsettings-desktop-schemas 的 schema 文件安装在非标准路径
+  #   share/gsettings-schemas/... 下。如果不设置 GSETTINGS_SCHEMA_DIR，
+  #   gsettings 找不到 org.gnome.desktop.interface 等核心 schema，
+  #   导致 GTK4/libadwaita 应用的 color-scheme（深浅主题）失效。
+  #
+  #   此变量通过 PAM 环境传递给 GDM 登录会话，确保从 niri 启动的所有
+  #   GUI 应用都能通过 gsettings 读取 dconf 中的 color-scheme 值。
+  # ============================================================================
+  environment.sessionVariables = {
+    GSETTINGS_SCHEMA_DIR =
+      "${pkgs.gsettings-desktop-schemas}/share/gsettings-schemas/${pkgs.gsettings-desktop-schemas.name}/glib-2.0/schemas";
+  };
+
+  # ============================================================================
   # niri —— Scrollable-tiling Wayland 合成器
   #
   #   特性：平铺窗口可以水平滚动（scrollable-tiling），

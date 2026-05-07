@@ -26,6 +26,12 @@
 # ==============================================================================
 
 let
+  # gsettings-desktop-schemas 的编译后 schema 目录
+  # NixOS 将 schema 放在非标准路径 share/gsettings-schemas/... 下，
+  # 需要设置 GSETTINGS_SCHEMA_DIR 让 GTK4/libadwaita 应用能找到。
+  gsettingsSchemaDir =
+    "${pkgs.gsettings-desktop-schemas}/share/gsettings-schemas/${pkgs.gsettings-desktop-schemas.name}/glib-2.0/schemas";
+
   niriConfig = pkgs.writeText "niri-config.kdl" ''
     // niri 配置文件 —— KDL 格式
     // 文档: https://niri-wm.github.io/niri/Configuration:-Introduction
@@ -130,6 +136,7 @@ let
         EXO_TERMINAL_EMULATOR "kitty"              // Thunar 等使用 kitty 作为终端
         GST_PLUGIN_SYSTEM_PATH_1_0 "${pkgs.gst_all_1.gst-plugins-bad}/lib/gstreamer-1.0"
         EDITOR "nvim"
+        GSETTINGS_SCHEMA_DIR "${gsettingsSchemaDir}"
     }
 
     // ==========================================================================
@@ -149,7 +156,7 @@ let
     // 自动启动
     // ==========================================================================
     spawn-at-startup "fcitx5"                                      // 启动输入法
-    spawn-sh-at-startup "dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP=niri"
+    spawn-sh-at-startup "dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP=niri GSETTINGS_SCHEMA_DIR"
 
     // ==========================================================================
     // 全局背景模糊设置

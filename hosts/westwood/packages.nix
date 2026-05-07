@@ -97,6 +97,7 @@
     libsForQt5.qt5ct                             # Qt5 配置工具（DMS 应用 Qt 配色用）
     kdePackages.qt6ct                            # Qt6 配置工具
     adwaita-icon-theme                           # Adwaita 图标 & 光标主题（DMS 依赖）
+    gsettings-desktop-schemas                    # GNOME 接口 schema（使 color-scheme、gtk-theme 等 gsettings 键生效，对所有 GTK3/4 应用深浅主题切换至关重要）
 
     # ---- 多媒体 ----
     gst_all_1.gstreamer                          # GStreamer 多媒体框架工具（gst-inspect / gst-launch）

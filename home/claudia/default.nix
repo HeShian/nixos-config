@@ -175,6 +175,12 @@
 
       [[ -f "$DMS_CLR" && -f "$DMS_SES" ]] || exit 0
 
+      # 等待配色文件稳定：DMS 在壁纸切换时可能连续多次写入中间配色
+      CLR_MTIME=$(stat -c "%Y" "$DMS_CLR" 2>/dev/null || echo 0)
+      sleep 0.3
+      NEW_MTIME=$(stat -c "%Y" "$DMS_CLR" 2>/dev/null || echo 0)
+      [ "$CLR_MTIME" = "$NEW_MTIME" ] || exit 0
+
       IS_LIGHT=$(${pkgs.jq}/bin/jq -r '.isLightMode' < "$DMS_SES")
       SCHEME=$([ "$IS_LIGHT" = "true" ] && echo "light" || echo "dark")
       c() { ${pkgs.jq}/bin/jq -r ".colors.$SCHEME.$1 // \"#000000\"" < "$DMS_CLR"; }
@@ -496,6 +502,152 @@ FCITXEOF
     };
     Install = { WantedBy = [ "default.target" ]; };
   };
+
+  # ============================================================================
+  # DMS → GTK 深浅主题同步
+  #
+  #   DMS（DankMaterialShell）会在切换壁纸或深浅主题时更新配色，
+  #   但 GTK 应用的 settings.ini 默认不会跟随 DMS 的变化。这导致
+  #   Thunar、Remmina、virt-manager 等应用在 DMS 切换深浅主题时
+  #   颜色不跟随变化。
+  #
+  #   DMS 已通过 dank-colors.css 提供了 GTK CSS 配色（定义 @define-color
+  #   变量覆盖 Adwaita 的默认颜色），但这个 CSS 只控制颜色值，不控制
+  #   深浅模式开关。GTK 应用控制深浅模式有以下几个层级，优先级从高到低：
+  #
+  #   A. gsettings/dconf color-scheme（GTK4 / libadwaita 应用）
+  #      → 通过 dconf write 写入 org.gnome.desktop.interface color-scheme
+  #      → 对 virt-manager、GNOME 应用等 GTK4 应用实时生效
+  #      → 需要 gsettings-desktop-schemas 包提供 schema
+  #
+  #   B. settings.ini（GTK3 应用，如 Remmina）
+  #      → gtk-theme-name=Adwaita + gtk-application-prefer-dark-theme
+  #      → 新启动的 GTK3 应用自动使用深色/浅色主题
+  #
+  #   C. xfconf（Xfce 应用，如 Thunar）
+  #      → 通过 xfconf-query 设置 /Net/ThemeName
+  #      → Thunar 读取此设置确定主题
+  #
+  #   本配置通过 systemd path 监听 DMS 状态变化，在 DMS 切换深浅主题时
+  #   同时更新以上三个层级的设置，确保所有 GTK 应用跟随 DMS 主题。
+  #
+  #   工作原理：
+  #     1. systemd path 监听 session.json（含 isLightMode 标志）
+  #     2. 触发同步脚本，检测当前 isLightMode
+  #     3. dconf write → GTK4/libadwaita 应用实时切换
+  #     4. 写入 settings.ini → GTK3 新启动应用使用正确主题
+  #     5. xfconf-query → Thunar 等 Xfce 应用切换
+  # ============================================================================
+
+  # DMS → GTK 配色自动同步脚本
+  #
+  #   读取 DMS session.json 的 isLightMode，同步以下设置：
+  #   1. dconf color-scheme（GTK4/libadwaita 实时切换）
+  #   2. gtk-3.0/4.0 settings.ini（GTK3 新启动应用）
+  #   3. xfconf（Thunar 等 Xfce 应用）
+  # ============================================================================
+
+  home.file."${config.home.homeDirectory}/.local/bin/dms-gtk-sync" = {
+    executable = true;
+    source = pkgs.writeShellScript "dms-gtk-sync" ''
+      DMS_SES="${config.home.homeDirectory}/.local/state/DankMaterialShell/session.json"
+      [[ -f "$DMS_SES" ]] || exit 0
+
+      IS_LIGHT=$(${pkgs.jq}/bin/jq -r '.isLightMode' < "$DMS_SES")
+      if [ "$IS_LIGHT" = "true" ]; then
+        PREFER_DARK=0
+        COLOR_SCHEME="default"
+        XFCE_THEME="Adwaita"
+      else
+        PREFER_DARK=1
+        COLOR_SCHEME="prefer-dark"
+        XFCE_THEME="Adwaita-dark"
+      fi
+
+      # ============================================================================
+      # 1. dconf → GTK4 / libadwaita 实时 color-scheme
+      #    virt-manager、GNOME 应用等 GTK4 应用通过 gsettings 读取此值，
+      #    dconf 直接写入数据库，安装 gsettings-desktop-schemas 后生效。
+      #
+      #    同时设置 gtk-theme 为 Adwaita，防止此前残留的 adw-gtk3 等
+      #    未安装主题导致 GTK 回退到浅色默认主题。
+      # ============================================================================
+      ${pkgs.dconf}/bin/dconf write /org/gnome/desktop/interface/color-scheme "'$COLOR_SCHEME'" 2>/dev/null || true
+      ${pkgs.dconf}/bin/dconf write /org/gnome/desktop/interface/gtk-theme "'Adwaita'" 2>/dev/null || true
+
+      # ============================================================================
+      # 2. GTK3 settings.ini → 新启动的 GTK3 应用使用正确深浅主题
+      #    gtk-theme-name 明确指定主题，gtk-application-prefer-dark-theme
+      #    确保使用深色变体（对 Adwaita 主题有效）。
+      # ============================================================================
+      write_gtk_ini() {
+        local DIR="$1"
+        local INI="$DIR/settings.ini"
+        mkdir -p "$DIR"
+        # 使用 awk 保留已有非相关配置，更新深色模式相关项
+        if [ -f "$INI" ]; then
+          ${pkgs.gawk}/bin/awk \
+            -v dark="$PREFER_DARK" \
+            -v theme="$([ "$IS_LIGHT" = "true" ] && echo "Adwaita" || echo "Adwaita")" '
+            /^gtk-theme-name=/             { found_th=1; print "gtk-theme-name=" theme; next }
+            /^gtk-application-prefer-dark-theme=/ { found_dk=1; print "gtk-application-prefer-dark-theme=" dark; next }
+            { print }
+            END {
+              if (!found_th) print "gtk-theme-name=" theme
+              if (!found_dk) print "gtk-application-prefer-dark-theme=" dark
+            }
+          ' "$INI" > "$INI.tmp" && mv "$INI.tmp" "$INI"
+        else
+          cat > "$INI" << GTK_INI
+      [Settings]
+      gtk-theme-name=Adwaita
+      gtk-application-prefer-dark-theme=$PREFER_DARK
+      gtk-icon-theme-name=Adwaita
+      GTK_INI
+        fi
+      }
+
+      exec 9>"${config.home.homeDirectory}/.config/gtk-3.0/sync.lock"
+      flock -n 9 || exit 0
+      write_gtk_ini "${config.home.homeDirectory}/.config/gtk-3.0"
+      write_gtk_ini "${config.home.homeDirectory}/.config/gtk-4.0"
+
+      # ============================================================================
+      # 3. xfconf → Thunar 等 Xfce 应用深浅主题
+      #    Thunar 通过 Xfce 的 xsettings 服务读取主题名称。xfconf-query
+      #    通过 D-Bus 写入 xfconf 数据库，需 xfconfd 运行中。
+      #    -n 参数在属性不存在时创建，-t string 指定类型为字符串。
+      #    如果 xfconfd 未运行则静默跳过。
+      # ============================================================================
+      ${pkgs.xfconf}/bin/xfconf-query -c xsettings -p /Net/ThemeName \
+        -n -t string -s "Adwaita" 2>/dev/null || true
+      ${pkgs.xfconf}/bin/xfconf-query -c xsettings -p /Net/IconThemeName \
+        -n -t string -s "Adwaita" 2>/dev/null || true
+    '';
+  };
+
+  systemd.user.services.dms-gtk-sync = {
+    Unit = { Description = "Sync DMS wallpaper colors to GTK theme"; };
+    Service = {
+      Type = "oneshot";
+      ExecStart = "${config.home.homeDirectory}/.local/bin/dms-gtk-sync";
+      Restart = "no";
+      StartLimitBurst = 30;
+      StartLimitIntervalSec = 60;
+    };
+    Install = { WantedBy = [ "default.target" ]; };
+  };
+
+  systemd.user.paths.dms-gtk-sync = {
+    Unit = { Description = "Watch DMS colors and sync to GTK theme"; };
+    Path = {
+      PathChanged = [
+        "%h/.local/state/DankMaterialShell/session.json"
+      ];
+    };
+    Install = { WantedBy = [ "default.target" ]; };
+  };
+
   home.packages = with pkgs; [
     kitty
     fuzzel
