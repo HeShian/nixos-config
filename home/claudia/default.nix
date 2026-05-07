@@ -79,7 +79,7 @@
       [InputPanel]
       NormalColor={{colors.on_surface.default.hex}}
       HighlightCandidateColor={{colors.on_primary.default.hex}}
-      HighlightColor={{colors.primary.default.hex}}
+      HighlightColor={{colors.on_primary.default.hex}}
       HighlightBackgroundColor={{colors.primary.default.hex}}
       PageButtonAlignment=Last Candidate
 
@@ -107,7 +107,7 @@
       Bottom=2
 
       [InputPanel/Highlight]
-      Color={{colors.primary_container.default.hex}}
+      Color={{colors.primary.default.hex}}
 
       [InputPanel/Highlight/Margin]
       Left=5
@@ -137,7 +137,7 @@
       Bottom=2
 
       [Menu/Highlight]
-      Color={{colors.primary_container.default.hex}}
+      Color={{colors.primary.default.hex}}
 
       [Menu/Highlight/Margin]
       Left=5
@@ -175,7 +175,7 @@
 
       [[ -f "$DMS_CLR" && -f "$DMS_SES" ]] || exit 0
 
-      IS_LIGHT=$(${pkgs.jq}/bin/jq -r '.isLightMode' < "$DMS_SES")
+      IS_LIGHT=$(${pkgs.jq}/bin/jq -r '.isLightMode // true' < "$DMS_SES")
       SCHEME=$([ "$IS_LIGHT" = "true" ] && echo "light" || echo "dark")
       c() { ${pkgs.jq}/bin/jq -r ".colors.$SCHEME.$1 // \"#000000\"" < "$DMS_CLR"; }
 
@@ -196,7 +196,7 @@
       [InputPanel]
       NormalColor=$OS
       HighlightCandidateColor=$OP
-      HighlightColor=$PR
+      HighlightColor=$OP
       HighlightBackgroundColor=$PR
       PageButtonAlignment=Last Candidate
 
@@ -224,7 +224,7 @@
       Bottom=2
 
       [InputPanel/Highlight]
-      Color=$PC
+      Color=$PR
 
       [InputPanel/Highlight/Margin]
       Left=5
@@ -254,7 +254,7 @@
       Bottom=2
 
       [Menu/Highlight]
-      Color=$PC
+      Color=$PR
 
       [Menu/Highlight/Margin]
       Left=5
@@ -288,7 +288,7 @@
   systemd.user.paths.dms-fcitx5-sync = {
     Unit = { Description = "Watch DMS colors and sync to fcitx5 theme"; };
     Path = {
-      PathModified = [
+      PathChanged = [
         "%h/.cache/DankMaterialShell/dms-colors.json"
         "%h/.local/state/DankMaterialShell/dms-colors.json"
         "%h/.local/state/DankMaterialShell/session.json"
@@ -382,12 +382,14 @@ FCITXEOF
   #   DMS 会根据壁纸生成动态主题色，但 fuzzel 使用独立的配置格式，
   #   默认不会跟随 DMS 主题色变化。
   #
-  #   本配置通过以下两层机制确保 fuzzel 配色始终与 DMS 保持一致：
+  #   本配置通过 systemd path 监听 + 同步脚本实现 fuzzel 配色与 DMS 同步。
+  #   当 DMS 的配色文件变化时（切换壁纸或深浅主题），自动重新生成
+  #   fuzzel.ini。由于 fuzzel 每次启动时重新读取配置，无需发送重载信号。
   #
-  #   1. DMS matugen 模板（runUserMatugenTemplates）：DMS 切换壁纸时自动渲染
-  #      fuzzel.ini，写入 CONFIG_DIR/fuzzel/，使颜色变量随壁纸更新。
-  #   2. systemd path 监听 + 同步脚本：当 DMS 的配色文件变化时，通过脚本
-  #      重新生成 fuzzel.ini，作为实时变化的二次保障。
+  #   注意：不使用 DMS matugen 模板方式（{{colors.*.default.hex}}），
+  #   因为 dms-colors.json 的 colors 对象只有 dark/light 分支，没有
+  #   default 分支，模板无法正确渲染。改为脚本直接读取 JSON 并选择
+  #   正确的配色方案。
   # ============================================================================
   #
   # 配色映射关系（Material Design → fuzzel）：
@@ -405,61 +407,12 @@ FCITXEOF
   #   border          = outline_variant          # 边框色
   # ============================================================================
 
-  # DMS 用户 matugen 模板配置 —— 定义 fuzzel 配置的输出路径
-  home.file.".config/dms/templates/fuzzel.toml" = {
-    text =
-''
-      [templates.dmsfuzzel]
-      input_path = 'CONFIG_DIR/dms/templates/fuzzel.ini'
-      output_path = 'CONFIG_DIR/fuzzel/fuzzel.ini'
-''
-    ;
-    force = true;
-  };
-
-  # DMS matugen 模板 —— fuzzel 启动器配色
-  home.file.".config/dms/templates/fuzzel.ini" = {
-    text =
-''
-      [main]
-      font=JetBrainsMono Nerd Font:size=14
-      prompt=>
-      lines=12
-      width=50
-      horizontal-pad=30
-      vertical-pad=12
-      inner-pad=6
-      icon-theme=Adwaita
-      layer=overlay
-      anchor=center
-
-      [border]
-      width=2
-      radius=12
-
-      [colors]
-      background={{colors.surface_container_low.default.hex}}
-      text={{colors.on_surface.default.hex}}
-      message={{colors.on_surface_variant.default.hex}}
-      prompt={{colors.primary.default.hex}}
-      placeholder={{colors.outline.default.hex}}
-      input={{colors.on_surface.default.hex}}
-      match={{colors.primary.default.hex}}
-      selection={{colors.primary_container.default.hex}}
-      selection-text={{colors.on_primary_container.default.hex}}
-      selection-match={{colors.primary.default.hex}}
-      counter={{colors.on_surface_variant.default.hex}}
-      border={{colors.outline_variant.default.hex}}
-''
-    ;
-    force = true;
-  };
-
   # DMS → fuzzel 配色自动同步
   #
-  #   当 DMS 更新配色文件时，自动重写 fuzzel.ini，使应用启动器的配色
-  #   始终匹配当前壁纸提取的 DMS 动态配色。
-  #   由于 fuzzel 每次启动时重新读取配置，无需发送重载信号。
+  #   systemd path 监听 dms-colors.json 和 session.json 的变化，
+  #   触发同步脚本重新生成 ~/.config/fuzzel/fuzzel.ini。
+  #   自动识别深浅主题（isLightMode），将 Material Color 色值转为
+  #   fuzzel 的 RRGGBBFF RGBA 格式。
   # ============================================================================
 
   home.file."${config.home.homeDirectory}/.local/bin/dms-fuzzel-sync" = {
@@ -472,7 +425,7 @@ FCITXEOF
 
       [[ -f "$DMS_CLR" && -f "$DMS_SES" ]] || exit 0
 
-      IS_LIGHT=$(${pkgs.jq}/bin/jq -r '.isLightMode' < "$DMS_SES")
+      IS_LIGHT=$(${pkgs.jq}/bin/jq -r '.isLightMode // true' < "$DMS_SES")
       SCHEME=$([ "$IS_LIGHT" = "true" ] && echo "light" || echo "dark")
       c() { ${pkgs.jq}/bin/jq -r ".colors.$SCHEME.$1 // \"#000000\"" < "$DMS_CLR"; }
 
@@ -520,13 +473,15 @@ FCITXEOF
     Service = {
       Type = "oneshot";
       ExecStart = "${config.home.homeDirectory}/.local/bin/dms-fuzzel-sync";
+      StartLimitBurst = 30;
+      StartLimitIntervalSec = 30;
     };
   };
 
   systemd.user.paths.dms-fuzzel-sync = {
     Unit = { Description = "Watch DMS colors and sync to fuzzel theme"; };
     Path = {
-      PathModified = [
+      PathChanged = [
         "%h/.cache/DankMaterialShell/dms-colors.json"
         "%h/.local/state/DankMaterialShell/dms-colors.json"
         "%h/.local/state/DankMaterialShell/session.json"
