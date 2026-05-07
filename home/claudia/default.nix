@@ -35,6 +35,265 @@
   # ============================================================================
   # 用户级软件包（仅当前用户可用，不需要 sudo 安装）
   # ============================================================================
+  # ============================================================================
+  # ============================================================================
+  # Fcitx5 输入法主题 —— DMS 动态配色适配
+  #
+  #   DMS（DankMaterialShell）会根据壁纸生成动态主题色，但 fcitx5 的候选词窗口
+  #   使用独立于 GTK/Qt 的 classicui 渲染，默认不会跟随 DMS 主题色。
+  #
+  #   本配置通过 DMS 的用户 matugen 模板系统（runUserMatugenTemplates 已启用），
+  #   在 DMS 切换壁纸/主题时自动生成 fcitx5 的 theme.conf，使输入法候选框
+  #   在所有应用中（terminal、Firefox、Electron 等）都使用一致的 DMS 配色。
+  #
+  #   工作原理：
+  #     1. fcitx5.toml 告诉 DMS 模板引擎处理 fcitx5-theme.conf
+  #     2. fcitx5-theme.conf 使用 matugen 颜色变量（{{colors.*.hex}}）定义主题
+  #     3. DMS 渲染后将 theme.conf 输出到 DATA_DIR/fcitx5/themes/dms/
+  #     4. classicui.conf 让 fcitx5 使用 "dms" 主题
+  # ============================================================================
+
+  # DMS 用户 matugen 模板配置 —— 定义 fcitx5 主题的输出路径
+  home.file.".config/dms/templates/fcitx5.toml" = {
+    text = 
+''
+      [templates.dmsfcitx5]
+      input_path = 'CONFIG_DIR/dms/templates/fcitx5-theme.conf'
+      output_path = 'DATA_DIR/fcitx5/themes/dms/theme.conf'
+''
+    ;
+    force = true;
+  };
+
+  # DMS matugen 模板 —— fcitx5 候选词窗口主题
+  home.file.".config/dms/templates/fcitx5-theme.conf" = {
+    text = 
+''
+      [Metadata]
+      Name=DMS Dynamic
+      Version=1
+      Author=DankMaterialShell
+      Description=Dynamic DMS theme generated with Matugen
+      ScaleWithDPI=True
+
+      [InputPanel]
+      NormalColor={{colors.on_surface.default.hex}}
+      HighlightCandidateColor={{colors.on_primary.default.hex}}
+      HighlightColor={{colors.primary.default.hex}}
+      HighlightBackgroundColor={{colors.primary.default.hex}}
+      PageButtonAlignment=Last Candidate
+
+      [InputPanel/TextMargin]
+      Left=5
+      Right=5
+      Top=5
+      Bottom=5
+
+      [InputPanel/ContentMargin]
+      Left=2
+      Right=2
+      Top=2
+      Bottom=2
+
+      [InputPanel/Background]
+      Color={{colors.surface_container_low.default.hex}}
+      BorderColor={{colors.outline_variant.default.hex}}
+      BorderWidth=2
+
+      [InputPanel/Background/Margin]
+      Left=2
+      Right=2
+      Top=2
+      Bottom=2
+
+      [InputPanel/Highlight]
+      Color={{colors.primary_container.default.hex}}
+
+      [InputPanel/Highlight/Margin]
+      Left=5
+      Right=5
+      Top=5
+      Bottom=5
+
+      [Menu]
+      NormalColor={{colors.on_surface.default.hex}}
+      HighlightCandidateColor={{colors.on_primary_container.default.hex}}
+
+      [Menu/Background]
+      Color={{colors.surface_container_low.default.hex}}
+      BorderColor={{colors.outline_variant.default.hex}}
+      BorderWidth=2
+
+      [Menu/Background/Margin]
+      Left=2
+      Right=2
+      Top=2
+      Bottom=2
+
+      [Menu/ContentMargin]
+      Left=2
+      Right=2
+      Top=2
+      Bottom=2
+
+      [Menu/Highlight]
+      Color={{colors.primary_container.default.hex}}
+
+      [Menu/Highlight/Margin]
+      Left=5
+      Right=5
+      Top=5
+      Bottom=5
+
+      [Menu/Separator]
+      Color={{colors.outline_variant.default.hex}}
+
+      [Menu/TextMargin]
+      Left=5
+      Right=5
+      Top=5
+      Bottom=5
+''
+    ;
+    force = true;
+  };
+
+  # DMS → fcitx5 配色自动同步
+  #
+  #   fcitx5 自动跟随 DMS 壁纸配色的同步脚本 + systemd path 单元。
+  #   当 DMS 更新配色文件时，自动重写 fcitx5 的 theme.conf 并通知
+  #   fcitx5 重新加载，保持输入法配色始终匹配当前壁纸提取的 DMS 动态配色。
+  # ============================================================================
+
+  home.file."${config.home.homeDirectory}/.local/bin/dms-fcitx5-sync" = {
+    executable = true;
+    source = pkgs.writeShellScript "dms-fcitx5-sync" ''
+      DMS_CLR="${config.home.homeDirectory}/.cache/DankMaterialShell/dms-colors.json"
+      DMS_SES="${config.home.homeDirectory}/.local/state/DankMaterialShell/session.json"
+      OUT_DIR="${config.home.homeDirectory}/.local/share/fcitx5/themes/dms"
+      OUT="$OUT_DIR/theme.conf"
+
+      [[ -f "$DMS_CLR" && -f "$DMS_SES" ]] || exit 0
+
+      IS_LIGHT=$(${pkgs.jq}/bin/jq -r '.isLightMode // true' < "$DMS_SES")
+      SCHEME=$([ "$IS_LIGHT" = "true" ] && echo "light" || echo "dark")
+      c() { ${pkgs.jq}/bin/jq -r ".colors.$SCHEME.$1 // \"#000000\"" < "$DMS_CLR"; }
+
+      OS=$(c on_surface); OP=$(c on_primary); PR=$(c primary)
+      PC=$(c primary_container); OPC=$(c on_primary_container)
+      SCL=$(c surface_container_low); OV=$(c outline_variant)
+
+      mkdir -p "$OUT_DIR"
+
+      cat > "$OUT" << XXXX
+      [Metadata]
+      Name=DMS Dynamic ($SCHEME)
+      Version=1
+      Author=DankMaterialShell (auto-sync)
+      Description=DMS dynamic theme - $SCHEME scheme
+      ScaleWithDPI=True
+
+      [InputPanel]
+      NormalColor=$OS
+      HighlightCandidateColor=$OP
+      HighlightColor=$PR
+      HighlightBackgroundColor=$PR
+      PageButtonAlignment=Last Candidate
+
+      [InputPanel/TextMargin]
+      Left=5
+      Right=5
+      Top=5
+      Bottom=5
+
+      [InputPanel/ContentMargin]
+      Left=2
+      Right=2
+      Top=2
+      Bottom=2
+
+      [InputPanel/Background]
+      Color=$SCL
+      BorderColor=$OV
+      BorderWidth=2
+
+      [InputPanel/Background/Margin]
+      Left=2
+      Right=2
+      Top=2
+      Bottom=2
+
+      [InputPanel/Highlight]
+      Color=$PC
+
+      [InputPanel/Highlight/Margin]
+      Left=5
+      Right=5
+      Top=5
+      Bottom=5
+
+      [Menu]
+      NormalColor=$OS
+      HighlightCandidateColor=$OPC
+
+      [Menu/Background]
+      Color=$SCL
+      BorderColor=$OV
+      BorderWidth=2
+
+      [Menu/Background/Margin]
+      Left=2
+      Right=2
+      Top=2
+      Bottom=2
+
+      [Menu/ContentMargin]
+      Left=2
+      Right=2
+      Top=2
+      Bottom=2
+
+      [Menu/Highlight]
+      Color=$PC
+
+      [Menu/Highlight/Margin]
+      Left=5
+      Right=5
+      Top=5
+      Bottom=5
+
+      [Menu/Separator]
+      Color=$OV
+
+      [Menu/TextMargin]
+      Left=5
+      Right=5
+      Top=5
+      Bottom=5
+      XXXX
+
+      kill -SIGUSR1 $(${pkgs.procps}/bin/pgrep -x fcitx5) 2>/dev/null || true
+    '';
+  };
+
+  systemd.user.services.dms-fcitx5-sync = {
+    Unit = { Description = "Sync DMS wallpaper colors to fcitx5 theme"; };
+    Service = {
+      Type = "oneshot";
+      ExecStart = "${config.home.homeDirectory}/.local/bin/dms-fcitx5-sync";
+    };
+  };
+
+  systemd.user.paths.dms-fcitx5-sync = {
+    Unit = { Description = "Watch DMS colors and sync to fcitx5 theme"; };
+    Path = {
+      PathModified = [
+        "%h/.cache/DankMaterialShell/dms-colors.json"
+        "%h/.local/state/DankMaterialShell/dms-colors.json"
+      ];
+    };
+    Install = { WantedBy = [ "default.target" ]; };
+  };
   home.packages = with pkgs; [
     kitty
     fuzzel

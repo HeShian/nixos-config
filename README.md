@@ -64,33 +64,42 @@ sudo nix flake update nixpkgs
 
 ```
 /etc/nixos/
-├── flake.nix                      # Flake 入口
-├── flake.lock                     # 依赖锁定文件
-├── opencode.jsonc                 # OpenCode AI 配置（nixos MCP）
+├── flake.nix                      # 🔰 Flake 入口 —— 声明 inputs + outputs
+├── flake.lock                     # 依赖锁定文件（自动生成）
+├── opencode.jsonc                 # ✨ OpenCode AI 配置（含 nixos MCP + skills 注册）
 ├── AGENTS.md                      # AI 助手行为指南
 ├── .gitignore
-├── hosts/westwood/                # 主机配置
+├── .opencode/skills/              # 📖 项目级 skill（AI 行为规范）
+│   └── nixos-config-guide.md      #   目录结构 + 中文注释规范
+├── hosts/westwood/                # 🖥️ 主机系统配置
 │   ├── configuration.nix          #   系统入口（import 所有子模块）
-│   ├── hardware-configuration.nix #   [自动生成] 硬件配置
+│   ├── hardware-configuration.nix #   [自动生成] 硬件配置（勿修改代码，可加注释头）
 │   ├── networking.nix             #   网络：主机名、NetworkManager、SSH
-│   ├── locale.nix                 #   本地化：时区、中文输入法 Fcitx5+Rime
-│   ├── hardware.nix               #   硬件：引导、NVIDIA、蓝牙、交换空间
-│   ├── desktop.nix                #   桌面：greetd、niri WM、DMS Shell、PipeWire
-│   ├── packages.nix               #   系统级软件包
+│   ├── locale.nix                 #   本地化：时区、Locale、Fcitx5+Rime 输入法
+│   ├── hardware.nix               #   硬件：systemd-boot、NVIDIA Optimus、蓝牙、zram+swap
+│   ├── desktop.nix                #   桌面：GDM、niri WM、DMS Shell、PipeWire
+│   ├── packages.nix               #   系统级软件包 + 服务（Firefox/Steam/libvirtd/daed）
 │   └── flatpak.nix                #   Flatpak + 中科大 USTC 镜像
-├── home/claudia/                  # 用户 claudia 配置
-│   ├── default.nix                #   HM 入口（import 子模块 + 用户软件包）
-│   ├── shell.nix                  #   Fish + Starship + Zoxide + Kitty
-│   ├── git.nix                    #   Git 配置
-│   ├── nvim.nix                   #   CookNixvim（Neovim）
-│   ├── niri.nix                   #   niri WM 配置（KDL 格式）
+├── home/claudia/                  # 👤 用户 claudia 配置
+│   ├── default.nix                #   HM 入口（imports + home.packages + MPV 配置）
+│   ├── shell.nix                  #   fish + starship + zoxide + kitty
+│   ├── git.nix                    #   Git 配置（用户信息、别名、忽略规则）
+│   ├── nvim.nix                   #   CookNixvim（基于 Nixvim 的模块化 Neovim）
+│   ├── niri.nix                   #   niri WM 键绑定 + 窗口规则 + 动画（KDL）
 │   └── xdg.nix                    #   XDG 基础（mimeapps、user-dirs、Xresources）
-├── modules/common.nix             # 通用模块：镜像源、用户、sudo 免密、GC
-├── overlays/default.nix           # 包覆盖：openldap 跳过测试
-├── pkgs/
-│   ├── default.nix                # 自定义包集合
-│   └── bilibili-tui/default.nix   # bilibili-tui：B站 TUI 客户端
-└── reference/                     # 参考配置文件（非 Nix 管理）
+├── modules/                       # 📦 可复用模块
+│   └── common.nix                 #   通用配置：镜像源、用户、sudo 免密、Nix GC
+├── overlays/                      # 🧩 软件包覆盖
+│   └── default.nix                #   openldap 修补 + 引入自定义包
+├── pkgs/                          # 📦 自定义包
+│   ├── default.nix                #   包集合入口（overlay 形式）
+│   └── bilibili-tui/              #   B 站 TUI 客户端（Rust）
+│       └── default.nix
+├── lib/                           # 🔧 自定义辅助函数库
+│   └── default.nix
+├── secrets/                       # 🔒 敏感配置（占位，未来用于 agenix/sops-nix）
+│   └── .gitkeep
+└── reference/                     # 参考文件（非 Nix 管理）
     └── dms/                       # DMS (DankMaterialShell) 配置
         ├── settings.json
         └── firefox.css
@@ -98,11 +107,11 @@ sudo nix flake update nixpkgs
 
 ## 桌面环境
 
-此配置使用 **无 GDM/GNOME** 的轻量桌面方案：
+此配置使用 GDM 作为登录管理器：
 
 | 层次 | 组件 | 说明 |
 |------|------|------|
-| 登录管理器 | greetd + tuigreet | TUI 密码登录界面 |
+| 登录管理器 | GDM | 图形登录界面 |
 | 窗口管理器 | niri (Scrollable-tiling) | Wayland 合成器，Vim 风格快捷键 |
 | 桌面 Shell | DMS (DankMaterialShell) | 运行在 niri 之上的动态主题 Shell |
 | 音频 | PipeWire + WirePlumber | 兼容 ALSA/PulseAudio |
