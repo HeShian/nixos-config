@@ -175,7 +175,7 @@
 
       [[ -f "$DMS_CLR" && -f "$DMS_SES" ]] || exit 0
 
-      IS_LIGHT=$(${pkgs.jq}/bin/jq -r '.isLightMode // true' < "$DMS_SES")
+      IS_LIGHT=$(${pkgs.jq}/bin/jq -r '.isLightMode' < "$DMS_SES")
       SCHEME=$([ "$IS_LIGHT" = "true" ] && echo "light" || echo "dark")
       c() { ${pkgs.jq}/bin/jq -r ".colors.$SCHEME.$1 // \"#000000\"" < "$DMS_CLR"; }
 
@@ -184,8 +184,10 @@
       SCL=$(c surface_container_low); OV=$(c outline_variant)
 
       mkdir -p "$OUT_DIR"
+      exec 9>"$OUT_DIR/sync.lock"
+      flock -n 9 || exit 0
 
-      cat > "$OUT" << XXXX
+      cat > "$OUT" << FCITX5_THEME_EOF
       [Metadata]
       Name=DMS Dynamic ($SCHEME)
       Version=1
@@ -281,6 +283,9 @@
     Service = {
       Type = "oneshot";
       ExecStart = "${config.home.homeDirectory}/.local/bin/dms-fcitx5-sync";
+      Restart = "no";
+      StartLimitBurst = 30;
+      StartLimitIntervalSec = 60;
     };
     Install = { WantedBy = [ "default.target" ]; };
   };
@@ -425,7 +430,7 @@ FCITXEOF
 
       [[ -f "$DMS_CLR" && -f "$DMS_SES" ]] || exit 0
 
-      IS_LIGHT=$(${pkgs.jq}/bin/jq -r '.isLightMode // true' < "$DMS_SES")
+      IS_LIGHT=$(${pkgs.jq}/bin/jq -r '.isLightMode' < "$DMS_SES")
       SCHEME=$([ "$IS_LIGHT" = "true" ] && echo "light" || echo "dark")
       c() { ${pkgs.jq}/bin/jq -r ".colors.$SCHEME.$1 // \"#000000\"" < "$DMS_CLR"; }
 
@@ -433,8 +438,10 @@ FCITXEOF
       cf() { printf '%sff\n' "$(c "$1" | sed 's/^#//')"; }
 
       mkdir -p "$OUT_DIR"
+      exec 9>"$OUT_DIR/sync.lock"
+      flock -n 9 || exit 0
 
-      cat > "$OUT" << XXXX
+      cat > "$OUT" << FCITX5_THEME_EOF
       [main]
       font=JetBrainsMono Nerd Font:size=14
       prompt=>
