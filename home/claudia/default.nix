@@ -37,6 +37,11 @@
   # ============================================================================
   # ============================================================================
   # ============================================================================
+  # 将 ~/.local/bin 加入 PATH，确保 remmina 包装脚本优先于系统包
+  # ============================================================================
+  home.sessionPath = [ "${config.home.homeDirectory}/.local/bin" ];
+
+  # ============================================================================
   # Fcitx5 输入法主题 —— DMS 动态配色适配
   #
   #   DMS（DankMaterialShell）会根据壁纸生成动态主题色，但 fcitx5 的候选词窗口
@@ -565,35 +570,32 @@ FCITXEOF
       fi
 
       # ============================================================================
-      # 1. dconf → GTK4 / libadwaita 实时 color-scheme
-      #    virt-manager、GNOME 应用等 GTK4 应用通过 gsettings 读取此值，
-      #    dconf 直接写入数据库，安装 gsettings-desktop-schemas 后生效。
-      #
-      #    同时设置 gtk-theme 为 Adwaita，防止此前残留的 adw-gtk3 等
-      #    未安装主题导致 GTK 回退到浅色默认主题。
+      # 1. dconf → GTK4/libadwaita 实时 color-scheme
+      #    virt-manager 等 GTK4 应用监听此 gsettings 信号，无需重启自动切换。
+      #    同时设置 gtk-theme 为 Adwaita，防止 DMS 的 portal 同步写入
+      #    未安装的 adw-gtk3-dark 主题导致 GTK 回退到浅色主题。
       # ============================================================================
       ${pkgs.dconf}/bin/dconf write /org/gnome/desktop/interface/color-scheme "'$COLOR_SCHEME'" 2>/dev/null || true
       ${pkgs.dconf}/bin/dconf write /org/gnome/desktop/interface/gtk-theme "'Adwaita'" 2>/dev/null || true
 
       # ============================================================================
-      # 2. GTK3 settings.ini → 新启动的 GTK3 应用使用正确深浅主题
-      #    gtk-theme-name 明确指定主题，gtk-application-prefer-dark-theme
-      #    确保使用深色变体（对 Adwaita 主题有效）。
+      # 2. GTK3/GTK4 settings.ini
+      #    官方 GTK3 文档指定深色模式的正确方式：
+      #      gtk-application-prefer-dark-theme=1  + gtk-theme-name=Adwaita
+      #    不使用 :dark 变体名称（在部分 GTK3 版本中无效）。
       # ============================================================================
       write_gtk_ini() {
         local DIR="$1"
         local INI="$DIR/settings.ini"
         mkdir -p "$DIR"
-        # 使用 awk 保留已有非相关配置，更新深色模式相关项
         if [ -f "$INI" ]; then
           ${pkgs.gawk}/bin/awk \
-            -v dark="$PREFER_DARK" \
-            -v theme="$([ "$IS_LIGHT" = "true" ] && echo "Adwaita" || echo "Adwaita")" '
-            /^gtk-theme-name=/             { found_th=1; print "gtk-theme-name=" theme; next }
+            -v dark="$PREFER_DARK" '
             /^gtk-application-prefer-dark-theme=/ { found_dk=1; print "gtk-application-prefer-dark-theme=" dark; next }
+            /^gtk-theme-name=/             { found_th=1; print "gtk-theme-name=Adwaita"; next }
             { print }
             END {
-              if (!found_th) print "gtk-theme-name=" theme
+              if (!found_th) print "gtk-theme-name=Adwaita"
               if (!found_dk) print "gtk-application-prefer-dark-theme=" dark
             }
           ' "$INI" > "$INI.tmp" && mv "$INI.tmp" "$INI"
@@ -613,24 +615,52 @@ FCITXEOF
       write_gtk_ini "${config.home.homeDirectory}/.config/gtk-4.0"
 
       # ============================================================================
-      # 3. xfconf → Thunar 等 Xfce 应用深浅主题
+      # 3. Remmina 主题配置 ← 独立设置，不走 GTK
+      #    Remmina 使用自己的 dark_theme 配置项（~/.config/remmina/remmina.pref），
+      #    此设置独立于 GTK 的 settings.ini 和 dconf，必须单独管理。
+      # ============================================================================
+      REMMINA_PREF="${config.home.homeDirectory}/.config/remmina/remmina.pref"
+      mkdir -p "$(dirname "$REMMINA_PREF")"
+      if [ -f "$REMMINA_PREF" ]; then
+        ${pkgs.gawk}/bin/awk \
+          -v dark="$PREFER_DARK" '
+          /^dark_theme=/ { found=1; print "dark_theme=" (dark ? "true" : "false"); next }
+          { print }
+          END { if (!found) print "dark_theme=" (dark ? "true" : "false") }
+        ' "$REMMINA_PREF" > "$REMMINA_PREF.tmp" && mv "$REMMINA_PREF.tmp" "$REMMINA_PREF"
+      else
+        echo "dark_theme=$([ "$PREFER_DARK" = "1" ] && echo "true" || echo "false")" > "$REMMINA_PREF"
+      fi
+
+      # ============================================================================
+      # 4. xfconf → Thunar 等 Xfce 应用深浅主题
       #    Thunar 通过 Xfce 的 xsettings 服务读取主题名称。xfconf-query
       #    通过 D-Bus 写入 xfconf 数据库，需 xfconfd 运行中。
       #    -n 参数在属性不存在时创建，-t string 指定类型为字符串。
       #    如果 xfconfd 未运行则静默跳过。
       # ============================================================================
       ${pkgs.xfconf}/bin/xfconf-query -c xsettings -p /Net/ThemeName \
-        -n -t string -s "Adwaita" 2>/dev/null || true
+        -n -t string -s "$XFCE_THEME" 2>/dev/null || true
       ${pkgs.xfconf}/bin/xfconf-query -c xsettings -p /Net/IconThemeName \
         -n -t string -s "Adwaita" 2>/dev/null || true
     '';
   };
 
   systemd.user.services.dms-gtk-sync = {
-    Unit = { Description = "Sync DMS wallpaper colors to GTK theme"; };
+    Unit = {
+      Description = "Sync DMS wallpaper colors to GTK theme";
+      After = [ "dms.service" ];              # DMS 启动完成后才执行初始同步
+      Wants = [ "dms.service" ];
+    };
     Service = {
       Type = "oneshot";
       ExecStart = "${config.home.homeDirectory}/.local/bin/dms-gtk-sync";
+      # DMS 启动时可能通过 portal 同步覆盖我们刚写入的 dconf 值，
+      # 延迟 4 秒后重跑一次确保最终状态正确。
+      ExecStartPost = [
+        "${pkgs.coreutils}/bin/sleep 4"
+        "${config.home.homeDirectory}/.local/bin/dms-gtk-sync"
+      ];
       Restart = "no";
       StartLimitBurst = 30;
       StartLimitIntervalSec = 60;
@@ -646,6 +676,56 @@ FCITXEOF
       ];
     };
     Install = { WantedBy = [ "default.target" ]; };
+  };
+
+  # ============================================================================
+  # Remmina 启动包装脚本
+  #
+  #   Remmina 不响应 settings.ini 的 gtk-application-prefer-dark-theme 标志，
+  #   也不响应 dconf color-scheme 变化。但 Remmina 会读取 GTK_THEME 环境变量
+  #   （最高优先级）。此包装脚本在启动 Remmina 时根据 DMS 当前模式动态设置
+  #   GTK_THEME 环境变量，实现深浅主题跟随。
+  #
+  #   GTK_THEME 仅在进程启动时读取，不会固定系统级环境变量，不影响其他应用。
+  #   切换主题后需关闭 Remmina 重启才能生效（GTK3 限制）。
+  # ============================================================================
+  home.file."${config.home.homeDirectory}/.local/bin/remmina" = {
+    executable = true;
+    source = pkgs.writeShellScript "remmina-wrapper" ''
+      DMS_SES="${config.home.homeDirectory}/.local/state/DankMaterialShell/session.json"
+      if [ -f "$DMS_SES" ]; then
+        IS_LIGHT=$(${pkgs.jq}/bin/jq -r '.isLightMode' < "$DMS_SES")
+        if [ "$IS_LIGHT" = "true" ]; then
+          export GTK_THEME="Adwaita"
+        else
+          export GTK_THEME="Adwaita:dark"
+        fi
+      fi
+      # 同步写入 Remmina 自身 dark_theme 配置
+      REMMINA_PREF="${config.home.homeDirectory}/.config/remmina/remmina.pref"
+      mkdir -p "${config.home.homeDirectory}/.config/remmina"
+      DARK_VAL=$([ "$IS_LIGHT" = "true" ] && echo "false" || echo "true")
+      if [ -f "$REMMINA_PREF" ]; then
+        ${pkgs.gawk}/bin/awk \
+          -v dark="$DARK_VAL" '
+          /^dark_theme=/ { found=1; print "dark_theme=" dark; next }
+          { print }
+          END { if (!found) print "dark_theme=" dark }
+        ' "$REMMINA_PREF" > "$REMMINA_PREF.tmp" && mv "$REMMINA_PREF.tmp" "$REMMINA_PREF"
+      else
+        echo "dark_theme=$DARK_VAL" > "$REMMINA_PREF"
+      fi
+      exec ${pkgs.remmina}/bin/remmina "$@"
+    '';
+  };
+
+  # 覆盖 Remmina 的 .desktop 文件，使 fuzzel/应用启动器调用包装脚本
+  xdg.desktopEntries."org.remmina.Remmina" = {
+    name = "Remmina";
+    genericName = "Remote Desktop Client";
+    exec = "${config.home.homeDirectory}/.local/bin/remmina %U";
+    categories = [ "Network" "GTK" ];
+    mimeType = [ "x-scheme-handler/remmina" ];
   };
 
   home.packages = with pkgs; [
