@@ -152,6 +152,21 @@ let
     spawn-sh-at-startup "dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP=niri"
 
     // ==========================================================================
+    // 全局背景模糊设置
+    //   自 niri 26.04 引入，影响所有启用了 background-effect 的窗口。
+    //   passes：采样次数（值越大越模糊，GPU 开销越大）
+    //   offset：采样间距（增大可提升平滑度，无额外 GPU 开销）
+    //   noise：噪点强度（减少色带伪影）
+    //   saturation：色彩饱和度（1.0=原始, >1=增艳）
+    // ==========================================================================
+    blur {
+        passes 3
+        offset 3.0
+        noise 0.02
+        saturation 1.5
+    }
+
+    // ==========================================================================
     // 动画（shorin 风格 — Spring 弹性动画）
     //   使用阻尼弹簧（damped spring）模型，参数：
     //   damping-ratio：阻尼比（0=无阻尼振荡, 1=临界阻尼）
@@ -257,6 +272,16 @@ let
     window-rule {
         match app-id=r#"org.quickshell$"#
         open-floating true
+    }
+
+    // 全局窗口模糊 —— 为半透明窗口开启背景模糊
+    //   xray 默认启用：只模糊壁纸背景，性能开销小
+    //   如需要真模糊（模糊所有遮挡内容），可设 xray false
+    //   （注意：xray false 为实验性功能，性能开销更大）
+    window-rule {
+        background-effect {
+            blur true
+        }
     }
 
     // 全局圆角 —— 所有窗口统一应用

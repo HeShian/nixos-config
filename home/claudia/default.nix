@@ -175,7 +175,7 @@
 
       [[ -f "$DMS_CLR" && -f "$DMS_SES" ]] || exit 0
 
-      IS_LIGHT=$(${pkgs.jq}/bin/jq -r '.isLightMode // true' < "$DMS_SES")
+      IS_LIGHT=$(${pkgs.jq}/bin/jq -r '.isLightMode' < "$DMS_SES")
       SCHEME=$([ "$IS_LIGHT" = "true" ] && echo "light" || echo "dark")
       c() { ${pkgs.jq}/bin/jq -r ".colors.$SCHEME.$1 // \"#000000\"" < "$DMS_CLR"; }
 
@@ -472,7 +472,7 @@ FCITXEOF
 
       [[ -f "$DMS_CLR" && -f "$DMS_SES" ]] || exit 0
 
-      IS_LIGHT=$(${pkgs.jq}/bin/jq -r '.isLightMode // true' < "$DMS_SES")
+      IS_LIGHT=$(${pkgs.jq}/bin/jq -r '.isLightMode' < "$DMS_SES")
       SCHEME=$([ "$IS_LIGHT" = "true" ] && echo "light" || echo "dark")
       c() { ${pkgs.jq}/bin/jq -r ".colors.$SCHEME.$1 // \"#000000\"" < "$DMS_CLR"; }
 

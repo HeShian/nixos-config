@@ -88,7 +88,9 @@ sudo nix flake update nixpkgs
 │   ├── niri.nix                   #   niri WM 键绑定 + 窗口规则 + 动画（KDL）
 │   └── xdg.nix                    #   XDG 基础（mimeapps、user-dirs、Xresources）
 ├── modules/                       # 📦 可复用模块
-│   └── common.nix                 #   通用配置：镜像源、用户、sudo 免密、Nix GC
+│   ├── nixos/                     #   NixOS 系统模块（跨主机复用）
+│   │   └── common.nix             #     通用配置：镜像源、用户、sudo 免密、Nix GC
+│   └── home/                      #   Home Manager 模块（跨用户复用）
 ├── overlays/                      # 🧩 软件包覆盖
 │   └── default.nix                #   openldap 修补 + 引入自定义包
 ├── pkgs/                          # 📦 自定义包

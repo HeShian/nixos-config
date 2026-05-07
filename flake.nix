@@ -72,7 +72,7 @@
     #   模块加载顺序：
     #     1. nixpkgs.hostPlatform + nixpkgs.overlays（基础设置）
     #     2. hosts/westwood/configuration.nix（主机所有子模块）
-    #     3. modules/common.nix（共享模块：镜像、用户、GC、安全）
+    #     3. modules/nixos/common.nix（共享模块：镜像、用户、GC、安全）
     #     4. home-manager NixOS 模块（Home Manager 集成）
     # -------------------------------------------------------------------------
     nixosConfigurations.westwood = nixpkgs.lib.nixosSystem {
@@ -90,7 +90,7 @@
 
         # ---- 共享模块 ----
         #   镜像源加速、用户定义、Nix GC、sudo 免密、非自由软件许可
-        ./modules/common.nix
+        ./modules/nixos/common.nix
 
         # ---- Home Manager 集成（作为 NixOS 模块） ----
         home-manager.nixosModules.home-manager

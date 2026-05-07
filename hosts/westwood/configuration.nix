@@ -16,7 +16,7 @@
 #     flatpak.nix                 → Flatpak 容器化应用框架 + USTC 镜像源
 #
 #   共享配置（多主机通用，如镜像源、用户定义、Nix GC）见
-#   /etc/nixos/modules/common.nix，在 flake.nix 中统一引入。
+#   /etc/nixos/modules/nixos/common.nix，在 flake.nix 中统一引入。
 #
 #   ⚠️ 添加新的子模块时，请在本文件的 imports 列表中注册。
 # ==============================================================================

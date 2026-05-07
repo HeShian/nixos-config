@@ -1,5 +1,20 @@
 # Westwood NixOS 配置
 
+## ⚠️ 强制性：每次配置前必须加载 skill
+
+在修改本仓库的任何配置之前，AI 助手**必须先执行**：
+
+```bash
+skill(name="nixos-config-guide")
+```
+
+此 skill 定义了项目的目录结构、注释规范和工作流程，所有配置变更必须严格遵守。
+未加载 skill 前，不得编辑任何 `.nix` 文件。
+
+---
+
+# Westwood NixOS 配置
+
 ## 快速命令
 
 ```bash
@@ -36,7 +51,7 @@ sudo nix flake update
 | `hosts/westwood/desktop.nix` | GDM、niri WM、DMS Shell、PipeWire、Thunar、字体 | **图形登录（GDM）** |
 | `hosts/westwood/packages.nix` | 系统级软件包 + 服务 | Firefox、Steam、libvirtd、v2raya、daed 等 |
 | `hosts/westwood/flatpak.nix` | Flatpak + USTC 镜像 | systemd oneshot 自动修复 Flathub GPG |
-| `modules/common.nix` | 共享模块：镜像源、用户 claudia、sudo 免密、Nix GC | 所有主机通用 |
+| `modules/nixos/common.nix` | 共享模块：镜像源、用户 claudia、sudo 免密、Nix GC | 所有主机通用 |
 | `home/claudia/default.nix` | 用户配置入口，imports shell/git/nvim/niri/xdg | 用户级软件包 + MPV 配置在此 |
 | `home/claudia/nvim.nix` | CookNixvim 外部 flake 输入 | 零污染 Neovim 配置 |
 | `home/claudia/niri.nix` | niri WM 配置 (KDL 格式, xdg.configFile 部署) | 键绑定、窗口规则、动画、环境变量 |
