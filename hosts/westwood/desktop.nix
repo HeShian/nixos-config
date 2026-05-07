@@ -107,82 +107,15 @@
   };
 
   # ============================================================================
-  # PipeWire —— 新一代音频/视频路由服务
-  #
-  #   替代传统的 PulseAudio + ALSA 组合，提供：
-  #   - 低延迟音频（适合音乐制作和游戏）
-  #   - 自动蓝牙音频切换（A2DP/ HSP）
-  #   - 屏幕录制的音频采集（kooha 等应用依赖）
-  #   - Flatpak 应用的音频支持
+  # 子模块说明：PipeWire 音频 → 见 pipewire.nix
   # ============================================================================
-  services.pipewire = {
-    enable = true;
-    alsa.enable = true;                          # ALSA 兼容层（传统应用）
-    pulse.enable = true;                         # PulseAudio 兼容层
-    wireplumber.enable = true;                   # WirePlumber 会话管理
-  };
 
   # ============================================================================
-  # Thunar —— 轻量文件管理器（Xfce）
-  #
-  #   插件：
-  #   - thunar-volman：可移动设备自动挂载
-  #   - thunar-archive-plugin：右键压缩/解压集成
+  # 子模块说明：Thunar 文件管理器 → 见 thunar.nix
   # ============================================================================
-  programs.thunar = {
-    enable = true;
-    plugins = with pkgs; [
-      thunar-volman                              # 可移动设备自动管理
-      thunar-archive-plugin                      # 压缩文件集成（右键菜单）
-    ];
-  };
-
-  programs.xfconf.enable = true;                 # Xfce 设置存储后端（Thunar 依赖）
-  services.gvfs.enable = true;                   # GVfs —— 挂载/回收站/网络文件系统支持
-
-  # dconf —— GNOME/GTK 应用的设置存储
-  programs.dconf.enable = true;
 
   # ============================================================================
-  # 字体配置
-  #
-  #   搭配方案：
-  #   - JetBrainsMono Nerd Font → 等宽字体 + 完整图标（Powerline/Devicons 等）
-  #   - Nerd Font Symbols Only → 仅图标包（减少体积）
-  #   - Noto Sans CJK SC → 中文界面字体（Google 出品，覆盖简繁日韩）
-  #   - Noto Color Emoji → 彩色 Emoji 支持
-  #
-  #   fontconfig 渲染优化：
-  #   - antialias：标准抗锯齿
-  #   - slight hinting：轻微微调（保留字形自然形状）
-  #   - RGB subpixel LCD 过滤：标准液晶屏最佳效果
-  #
-  #   参考：https://github.com/SHORiN-KiWATA/shorin-dms-niri
+  # 子模块说明：字体配置 → 见 fonts.nix
   # ============================================================================
-  fonts = {
-    packages = with pkgs; [
-      nerd-fonts.jetbrains-mono                   # JetBrains Mono + 完整 Nerd Font 图标
-      nerd-fonts.symbols-only                     # Nerd Font 图标单独包（补充）
-      noto-fonts-cjk-sans                         # Noto Sans CJK —— 中文界面字体
-      noto-fonts-color-emoji                      # 彩色 Emoji 字体
-    ];
 
-    fontconfig = {
-      antialias = true;                           # 启用抗锯齿
-      hinting = {
-        enable = true;
-        style = "slight";                        # slight hinting —— 保留字形轮廓，避免过度变形
-      };
-      subpixel = {
-        rgba = "rgb";                            # 标准 RGB 子像素排列
-        lcdfilter = "default";                   # LCD 次像素过滤（改善彩色边缘）
-      };
-      defaultFonts = {
-        monospace = ["JetBrainsMono Nerd Font" "Noto Sans CJK SC"];
-        sansSerif = ["Noto Sans CJK SC" "Noto Sans"];
-        serif = ["Noto Sans CJK SC" "Noto Sans"];
-        emoji = ["Noto Color Emoji"];
-      };
-    };
-  };
 }

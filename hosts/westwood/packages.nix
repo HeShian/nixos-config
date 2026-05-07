@@ -1,16 +1,16 @@
 { config, lib, pkgs, ... }:
 
 # ==============================================================================
-# 系统软件包与服务配置
+# 系统软件包配置
 #
-#   本文件管理 westwood 主机的系统级软件包（对所有用户可用）和系统服务。
+#   本文件管理 westwood 主机的系统级软件包（对所有用户可用）。
 #   用户级软件包（仅 claudia 可用，不需要 root 权限）请见：
-#     /etc/nixos/home/claudia/default.nix → home.packages
+#     /etc/nixos/home/claudia/packages.nix → home.packages
+#
+#   系统服务（v2raya / libvirtd / daed）请见 services.nix
 #
 #   配置分类：
-#   - 系统级程序（programs.*）：Firefox、Fish、Steam、v2raya
-#   - 虚拟化：libvirtd（KVM/QEMU）
-#   - 代理服务：daed（eBPF 内核态代理）
+#   - 系统级程序（programs.*）：Firefox、Fish、Steam
 #   - 系统级软件包（environment.systemPackages）：一般工具和开发环境
 # ==============================================================================
 
@@ -22,7 +22,6 @@
   # ============================================================================
   programs.firefox.enable = true;                  # Firefox 浏览器（带 NixOS 集成）
   programs.fish.enable = true;                     # Fish Shell（系统级启用，确保 /etc/shells 注册）
-  services.v2raya.enable = true;                   # V2RayA —— 用户态代理客户端（Web 面板管理）
 
   # ============================================================================
   # Steam 游戏平台
