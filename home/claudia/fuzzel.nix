@@ -48,16 +48,28 @@
 
       [[ -f "$DMS_CLR" && -f "$DMS_SES" ]] || exit 0
 
+      mkdir -p "$OUT_DIR"
+      exec 9>"$OUT_DIR/sync.lock"
+      flock -n 9 || exit 0
+
+      # 竞态修复：等 cache 配色刷新后再读取（详见 fcitx5.nix 注释）
+      SES_MTIME=$(stat -c "%Y" "$DMS_SES" 2>/dev/null || echo 0)
+      WAITED=0
+      while [ $WAITED -lt 10 ]; do
+        CLR_MTIME=$(stat -c "%Y" "$DMS_CLR" 2>/dev/null || echo 0)
+        if [ "$CLR_MTIME" -ge "$SES_MTIME" ] 2>/dev/null; then
+          break
+        fi
+        sleep 1
+        WAITED=$((WAITED + 1))
+      done
+
       IS_LIGHT=$(${pkgs.jq}/bin/jq -r '.isLightMode' < "$DMS_SES")
       SCHEME=$([ "$IS_LIGHT" = "true" ] && echo "light" || echo "dark")
       c() { ${pkgs.jq}/bin/jq -r ".colors.$SCHEME.$1 // \"#000000\"" < "$DMS_CLR"; }
 
       # 将 #RRGGBB 转为 RRGGBBFF（fuzzel 使用 8 位 RGBA 格式，不含 # 前缀）
       cf() { printf '%sff\n' "$(c "$1" | sed 's/^#//')"; }
-
-      mkdir -p "$OUT_DIR"
-      exec 9>"$OUT_DIR/sync.lock"
-      flock -n 9 || exit 0
 
       cat > "$OUT" << FCITX5_THEME_EOF
       [main]
@@ -103,12 +115,17 @@
     };
   };
 
+  # ---------------------------------------------------------------------------
+  # 路径监听说明（同 fcitx5.nix）：
+  #   - cache/dms-colors.json：DMS 壁纸配色的主输出文件
+  #   - session.json：深浅模式状态
+  #   - state/dms-colors.json 已移除：壁纸切换时不会更新，监听它会导致用过时配色同步
+  # ---------------------------------------------------------------------------
   systemd.user.paths.dms-fuzzel-sync = {
     Unit = { Description = "Watch DMS colors and sync to fuzzel theme"; };
     Path = {
       PathChanged = [
         "%h/.cache/DankMaterialShell/dms-colors.json"
-        "%h/.local/state/DankMaterialShell/dms-colors.json"
         "%h/.local/state/DankMaterialShell/session.json"
       ];
     };

@@ -10,7 +10,7 @@
 #   系统服务（v2raya / libvirtd / daed）请见 services.nix
 #
 #   配置分类：
-#   - 系统级程序（programs.*）：Firefox、Fish、Steam
+#   - 系统级程序（programs.*）：Firefox、Fish、Steam、VSCode
 #   - 系统级软件包（environment.systemPackages）：一般工具和开发环境
 # ==============================================================================
 
@@ -22,6 +22,7 @@
   # ============================================================================
   programs.firefox.enable = true;                  # Firefox 浏览器（带 NixOS 集成）
   programs.fish.enable = true;                     # Fish Shell（系统级启用，确保 /etc/shells 注册）
+  programs.vscode.enable = true;                   # VSCode 编辑器（含 extensions 支持）
 
   # ============================================================================
   # Steam 游戏平台
@@ -43,7 +44,7 @@
   #   如果某个包仅当前用户需要，请放入 home.packages（home/claudia/default.nix）。
   #
   #   包分组说明：
-  #   - 基础工具：neovim / git / wget / curl / opencode
+  #   - 基础工具：google-chrome / kazumi / neovim / git / wget / curl / opencode
   #   - 开发运行时：nodejs / bun / uv / python3
   #   - 桌面集成：fuzzel（启动器）/ qt5ct/qt6ct / adwaita-icon-theme
   #   - 虚拟化：qemu_kvm（virt-manager 检测 QEMU 需要 qemu-kvm 可用）
@@ -54,10 +55,16 @@
   # ============================================================================
   environment.systemPackages = with pkgs; [
     # ---- 基础工具 ----
+    google-chrome                                 # Google Chrome 浏览器
+    kazumi                                        # 在线动漫播放器（弹幕支持）
     neovim                                       # 终端编辑器（主力）
     git                                          # 版本控制系统
     wget                                         # HTTP/FTP 文件下载
     curl                                         # HTTP 命令行工具
+    unzip                                        # ZIP 解压工具
+    p7zip                                        # 7z 压缩/解压支持
+    xarchiver                                    # GTK 归档管理器（Thunar 右键解压依赖）
+    thunar-archive-plugin                        # Thunar 右键归档菜单插件
     opencode                                     # AI 编码代理（终端版）
 
     # ---- 开发运行时 ----

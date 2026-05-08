@@ -272,6 +272,7 @@ let
         match app-id="Alacritty"
         match app-id="kitty"
         match app-id="org.wezfurlong.wezterm"
+        match app-id="com.mitchellh.ghostty"
         draw-border-with-background false
     }
 
@@ -307,12 +308,17 @@ let
         Mod+Shift+Slash { show-hotkey-overlay; }
 
         // ---- 启动程序 ----
+        Mod+Return hotkey-overlay-title="打开终端: ghostty" { spawn "ghostty"; }
         Mod+T hotkey-overlay-title="打开终端: kitty" { spawn "kitty"; }
         Mod+Z hotkey-overlay-title="运行应用: fuzzel" { spawn "fuzzel"; }
         Mod+B hotkey-overlay-title="打开浏览器: firefox" { spawn "firefox"; }
+        Mod+Alt+B hotkey-overlay-title="打开浏览器: Chrome" { spawn "google-chrome-stable"; }
         Mod+E hotkey-overlay-title="打开文件管理器: Thunar" { spawn "thunar"; }
         Super+Alt+L hotkey-overlay-title="锁定屏幕: swaylock" { spawn "swaylock"; }
         Super+Alt+S allow-when-locked=true hotkey-overlay-title=null { spawn-sh "pkill orca || exec orca"; }
+
+        // ---- 输入法 ----
+        Mod+F1 hotkey-overlay-title="重启输入法: fcitx5" { spawn-sh "fcitx5 -r"; }
 
         // ---- 音量控制（允许锁屏时使用） ----
         XF86AudioRaiseVolume allow-when-locked=true { spawn-sh "wpctl set-volume @DEFAULT_AUDIO_SINK@ 0.1+ -l 1.0"; }

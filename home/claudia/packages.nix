@@ -18,6 +18,7 @@
 {
   home.packages = with pkgs; [
     kitty
+    ghostty       # 现代、原生、功能丰富的终端模拟器（Mod+Enter 启动）
     fuzzel
     swaylock
     brightnessctl  # 屏幕亮度控制

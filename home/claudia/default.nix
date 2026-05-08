@@ -14,6 +14,7 @@
 #   - fcitx5.nix      → Fcitx5 输入法 + DMS 动态配色同步
 #   - fuzzel.nix      → Fuzzel 启动器 + DMS 配色同步
 #   - gtk-sync.nix    → DMS → GTK 深浅主题同步 + Remmina 包装
+#   - dms-fix.nix     → DMS 启动主题修复（自动深浅切换未触发问题）
 #   - packages.nix    → 用户级软件包
 #   - mpv.nix         → MPV 视频播放器配置
 #   - thunar.nix      → Thunar 桌面集成（exo-open、xfconf）
@@ -32,6 +33,7 @@
     ./fcitx5.nix      # Fcitx5 输入法 + DMS 动态配色同步
     ./fuzzel.nix      # Fuzzel 启动器 + DMS 配色同步
     ./gtk-sync.nix    # DMS → GTK 深浅主题同步 + Remmina 包装
+    ./dms-fix.nix     # DMS 启动主题修复（SIGUSR1 触发 QML 重载）
 
     # --- 应用配置 ---
     ./packages.nix    # 用户级软件包

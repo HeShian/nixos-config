@@ -34,8 +34,17 @@ sudo git clone https://github.com/HeShian/nixos-config.git /etc/nixos
 sudo nixos-generate-config --show-hardware-config > /tmp/hardware-configuration.nix
 # 将生成的 hardware-configuration.nix 替换到 hosts/westwood/ 下
 
-# 3. 重建系统
+# 3. 重建系统（NixOS + Home Manager 一起部署）
 sudo nixos-rebuild switch --flake /etc/nixos#westwood
+
+# 4. 安装 Flatpak 应用（系统级已配置好 USTC 镜像源）
+flatpak install flathub cn.wps.wps_365
+flatpak install flathub eu.betterbird.Betterbird
+flatpak install flathub io.github.kolunmi.Bazaar
+
+# 5. 复现 DMS 桌面 Shell 配置
+cp /etc/nixos/reference/dms/settings.json ~/.config/DankMaterialShell/settings.json
+cp /etc/nixos/reference/dms/firefox.css    ~/.config/DankMaterialShell/firefox.css
 ```
 
 > **注意**：`hardware-configuration.nix` 由 `nixos-generate-config` 根据实际硬件自动生成，
@@ -86,7 +95,14 @@ sudo nix flake update nixpkgs
 │   ├── git.nix                    #   Git 配置（用户信息、别名、忽略规则）
 │   ├── nvim.nix                   #   CookNixvim（基于 Nixvim 的模块化 Neovim）
 │   ├── niri.nix                   #   niri WM 键绑定 + 窗口规则 + 动画（KDL）
-│   └── xdg.nix                    #   XDG 基础（mimeapps、user-dirs、Xresources）
+│   ├── fcitx5.nix                 #   Fcitx5 输入法 + DMS 动态配色同步
+│   ├── fuzzel.nix                 #   Fuzzel 启动器 + DMS 配色同步
+│   ├── gtk-sync.nix               #   DMS → GTK 深浅主题同步 + Remmina 包装
+│   ├── dms-fix.nix                #   DMS 启动主题修复（自动深浅切换）
+│   ├── xdg.nix                    #   XDG 基础（mimeapps、user-dirs、Xresources）
+│   ├── packages.nix               #   用户级软件包
+│   ├── mpv.nix                    #   MPV 视频播放器配置
+│   └── thunar.nix                 #   Thunar 桌面集成（exo-open、xfconf）
 ├── modules/                       # 📦 可复用模块
 │   ├── nixos/                     #   NixOS 系统模块（跨主机复用）
 │   │   └── common.nix             #     通用配置：镜像源、用户、sudo 免密、Nix GC
@@ -150,6 +166,37 @@ sudo nix flake update nixpkgs
 flatpak install flathub <应用ID>
 ```
 
+## Flatpak 应用
+
+以下 Flatpak 应用通过 `flatpak install flathub` 手动安装（不在 Nix 管理范围内）：
+
+| 应用 | ID | 说明 |
+|------|-----|------|
+| WPS 365 | `cn.wps.wps_365` | WPS Office 办公套件 |
+| Betterbird | `eu.betterbird.Betterbird` | 邮件客户端（Thunderbird 分支） |
+| Bazaar | `io.github.kolunmi.Bazaar` | 应用发现与管理工具 |
+
+安装命令见上方「部署步骤」第 4 步。
+
+## DMS 配置复现
+
+DMS（DankMaterialShell）的完整配置保存在 `reference/dms/` 目录中，文件清单：
+
+| 文件 | 目标位置 | 说明 |
+|------|----------|------|
+| `reference/dms/settings.json` | `~/.config/DankMaterialShell/settings.json` | DMS 全部设置（主题、布局、插件等） |
+| `reference/dms/firefox.css` | `~/.config/DankMaterialShell/firefox.css` | Firefox 动态主题 CSS（matugen 生成） |
+
+**复现方法**：新机器上 clone 仓库后，将参考文件复制到 DMS 配置目录：
+
+```bash
+mkdir -p ~/.config/DankMaterialShell
+cp /etc/nixos/reference/dms/settings.json ~/.config/DankMaterialShell/settings.json
+cp /etc/nixos/reference/dms/firefox.css    ~/.config/DankMaterialShell/firefox.css
+```
+
+复制后重新登录或重启 DMS 即可还原当前全部 DMS 桌面 Shell 配置（包括状态栏布局、动态主题、快捷键、字体等 500+ 项设置）。
+
 ## 自定义包
 
 自定义包位于 `pkgs/` 目录，通过 `overlays/default.nix` 注入 nixpkgs：
@@ -204,6 +251,12 @@ echo $QT_IM_MODULE   # 应是 fcitx
 ```
 
 如果未生效，重新登录或检查 niri 环境变量配置。
+
+Fcitx5 候选框主题会自动跟随 DMS 壁纸配色（通过 `dms-fcitx5-sync` 服务），
+切换壁纸或深浅模式后 1-2 秒内自动更新。如果主题未跟随变化，手动运行：
+```bash
+~/.local/bin/dms-fcitx5-sync
+```
 
 ### NVIDIA 独显无法调用
 

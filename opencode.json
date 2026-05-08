@@ -8,7 +8,5 @@
       "enabled": true
     }
   },
-  "skills": {
-    "dirs": [".opencode/skills"]
-  }
+  "skills": {}
 }
