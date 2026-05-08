@@ -39,6 +39,11 @@
       # ===== 关闭欢迎语 =====
       set -g fish_greeting
 
+      # ===== 终端启动时自动显示系统信息 =====
+      # Home Manager 已确保此代码仅在交互式 Shell 中运行
+      # （status is-interactive 守卫），直接调用 fastfetch 即可
+      fastfetch
+
       # ===== 自定义别名（eza/bat 替代 ls/cat） =====
       alias ll='eza -la --icons'
       alias la='eza -A --icons'

@@ -24,6 +24,8 @@
   # 导入子模块 —— 按程序/功能拆分，方便维护
   imports = [
     ./shell.nix       # Shell 环境（fish / starship / zoxide / kitty）
+    ./ghostty.nix     # Ghostty 终端模拟器（GPU 加速，匹配 Kitty 配置）
+    ./fastfetch.nix   # Fastfetch 系统信息显示（Catnap 风格，终端启动自动运行）
     ./git.nix         # Git 版本控制配置
     ./nvim.nix        # CookNixvim（Neovim 编辑器配置）
     ./niri.nix        # niri Wayland 合成器配置
