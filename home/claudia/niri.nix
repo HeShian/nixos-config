@@ -298,6 +298,16 @@ let
         clip-to-geometry true
     }
 
+    // DMS overview 模糊壁纸层
+    //   DMS 在 overview 模式下会创建一个 layer-shell 表面（namespace dms:blurwallpaper），
+    //   渲染当前壁纸的模糊复本作为 overview 背景。此 layer-rule 将其放入 backdrops 层，
+    //   使其显示在所有窗口之后、壁纸之前，形成 overview 的模糊壁纸背景效果。
+    //   参考：shorin-dms-niri 配置
+    layer-rule {
+        match namespace="dms:blurwallpaper"
+        place-within-backdrop true
+    }
+
     // ==========================================================================
     // 快捷键绑定
     //   Mod = Super（Windows 键）
