@@ -262,7 +262,6 @@
       ExecStart = "${config.home.homeDirectory}/.local/bin/dms-fcitx5-sync";
       Restart = "no";
       StartLimitBurst = 30;
-      StartLimitIntervalSec = 60;
     };
     Install = { WantedBy = [ "default.target" ]; };
   };

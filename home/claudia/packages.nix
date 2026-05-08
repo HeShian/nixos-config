@@ -12,7 +12,7 @@
 #   - 下载工具（gopeed/qbittorrent）
 #   - 远程桌面 & 文件传输（Remmina/Localsend）
 #   - 音乐 & 游戏
-#   - 工具（Bilibili TUI/MPV/yt-dlp/virt-manager）
+#   - 工具 & 虚拟化（Bilibili TUI/MPV/virt-manager/virt-viewer）
 # ==============================================================================
 
 {
@@ -54,11 +54,13 @@
     lutris                     # 游戏平台（WINE 管理器）
     heroic                     # Heroic Games Launcher（Epic/GOG/Amazon）
 
-    # --- 工具 ---
+    # --- 工具 & 虚拟化 ---
     bilibili-tui              # Bilibili TUI 终端客户端
     mpv                       # 视频播放器（bilibili-tui 依赖）
     yt-dlp                    # 视频流提取（bilibili-tui 依赖）
     virt-manager              # 虚拟机管理器（KVM 前端）
+    virt-viewer               # SPICE/VNC 客户端（virt-manager 虚拟机控制台）
+    spice-gtk                 # SPICE GTK 客户端库（virt-viewer 依赖）
     xwayland-satellite         # XWayland 兼容层（niri 需要）
     mpvScripts.bdanmaku       # Bilibili 弹幕 mpv 插件
     biliass                   # Bilibili 弹幕转 ASS 字幕

@@ -37,34 +37,6 @@
   };
 
   # ============================================================================
-  # 虚拟化 —— libvirtd（KVM/QEMU）
-  #   完整的虚拟化解决方案，支持：
-  #   - KVM 硬件加速（需要 CPU 支持 VT-x/AMD-V）
-  #   - QEMU 全虚拟化
-  #   - virt-manager 图形管理（用户级包，见 home/claudia/default.nix）
-  #   用户 virt-manager 非 root 管理需要用户加入 libvirtd 组（已在 modules/nixos/common.nix 中配置）
-  # ============================================================================
-  virtualisation.libvirtd.enable = true;
-
-  # ============================================================================
-  # Daed —— 基于 eBPF 的内核态代理
-  #
-  #   daed 是 dae 的升级版，在 Linux 内核 eBPF 层面进行流量代理，
-  #   CPU/内存开销远低于用户态代理。Web 管理面板端口：2023
-  #
-  #   v2raya（用户态，用户级）和 daed（内核态，系统级）可以共存，
-  #   两者使用不同的端口和路由规则，互不干扰。
-  # ============================================================================
-  systemd.packages = with pkgs; [ daed ];
-  systemd.services.daed.wantedBy = [ "multi-user.target" ];
-  systemd.services.daed.environment.DAE_LOCATION_ASSET =
-    "${pkgs.symlinkJoin {
-      name = "dae-assets";
-      paths = with pkgs; [ v2ray-geoip v2ray-domain-list-community ];
-    } }/share/v2ray";
-  networking.firewall.allowedTCPPorts = [ 2023 ]; # daed Web 管理面板端口
-
-  # ============================================================================
   # 系统级软件包（environment.systemPackages）
   #
   #   以下包对所有系统用户可用（包括 root 和未来新增的用户）。
@@ -74,8 +46,11 @@
   #   - 基础工具：neovim / git / wget / curl / opencode
   #   - 开发运行时：nodejs / bun / uv / python3
   #   - 桌面集成：fuzzel（启动器）/ qt5ct/qt6ct / adwaita-icon-theme
+  #   - 虚拟化：qemu_kvm（virt-manager 检测 QEMU 需要 qemu-kvm 可用）
   #   - 多媒体：gstreamer / obs-studio
   #   - 代理：daed
+  #
+  #   注：libvirtd 服务配置见 services.nix（含 SWTPM、QEMU 符号链接等）
   # ============================================================================
   environment.systemPackages = with pkgs; [
     # ---- 基础工具 ----
@@ -97,6 +72,9 @@
     kdePackages.qt6ct                            # Qt6 配置工具
     adwaita-icon-theme                           # Adwaita 图标 & 光标主题（DMS 依赖）
     gsettings-desktop-schemas                    # GNOME 接口 schema（使 color-scheme、gtk-theme 等 gsettings 键生效，对所有 GTK3/4 应用深浅主题切换至关重要）
+
+    # ---- 虚拟化 ----
+    qemu_kvm                                     # QEMU KVM 硬件加速虚拟化（提供 qemu-kvm/qemu-system-x86_64）
 
     # ---- 多媒体 ----
     gst_all_1.gstreamer                          # GStreamer 多媒体框架工具（gst-inspect / gst-launch）

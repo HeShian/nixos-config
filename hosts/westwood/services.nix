@@ -24,12 +24,31 @@
   #
   #   完整的虚拟化解决方案，支持：
   #   - KVM 硬件加速（需要 CPU 支持 VT-x/AMD-V）
-  #   - QEMU 全虚拟化
+  #   - QEMU 全虚拟化（x86_64 + 交叉架构模拟）
+  #   - SWTPM 软件 TPM（Windows 11 需要 TPM 2.0）
   #   - virt-manager 图形管理（用户级包，见 home/claudia/packages.nix）
+  #
   #   用户 virt-manager 非 root 管理需要用户加入 libvirtd 组
   #   （已在 modules/nixos/common.nix 中配置）
+  #
+  #   ⚠️ virt-manager 检测 QEMU 依赖硬编码路径 /usr/bin/qemu-kvm
+  #      （NixOS 默认不提供该路径），因此在 systemd.tmpfiles.rules 中
+  #      创建了兼容性符号链接以解决检测问题。
   # ============================================================================
-  virtualisation.libvirtd.enable = true;
+  virtualisation.libvirtd = {
+    enable = true;
+    qemu = {
+      swtpm.enable = true;                          # 软件 TPM 模拟器（Windows 11 需要 TPM 2.0）
+    };
+  };
+
+  # libvirtd 的 QEMU 兼容性符号链接
+  #   virt-manager 通过检查 /usr/bin/qemu-kvm 是否存在来判断默认虚拟机管理程序。
+  #   NixOS 的 QEMU 安装到 /run/current-system/sw/bin/ 而非 /usr/bin/，
+  #   因此需要创建符号链接以满足检测。详见 virt-manager 的 _default_uri() 函数。
+  systemd.tmpfiles.rules = [
+    "L+ /usr/bin/qemu-kvm - - - - ${pkgs.qemu_kvm}/bin/qemu-kvm"
+  ];
 
   # ============================================================================
   # Daed —— 基于 eBPF 的内核态代理
