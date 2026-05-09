@@ -49,6 +49,7 @@
   #   - 桌面集成：fuzzel（启动器）/ qt5ct/qt6ct / adwaita-icon-theme
   #   - 虚拟化：qemu_kvm（virt-manager 检测 QEMU 需要 qemu-kvm 可用）
   #   - 多媒体：gstreamer / obs-studio
+  #   - Wine 兼容层：wine / winetricks
   #   - 代理：daed
   #
   #   注：libvirtd 服务配置见 services.nix（含 SWTPM、QEMU 符号链接等）
@@ -67,6 +68,7 @@
     xarchiver                                    # GTK 归档管理器（Thunar 右键解压依赖）
     thunar-archive-plugin                        # Thunar 右键归档菜单插件
     opencode                                     # AI 编码代理（终端版）
+    hardinfo2                                    # 系统信息与基准测试工具（硬件检测/性能评估）
 
     # ---- 开发运行时 ----
     nodejs                                       # JavaScript/TypeScript 运行时
@@ -87,6 +89,10 @@
     # ---- 多媒体 ----
     gst_all_1.gstreamer                          # GStreamer 多媒体框架工具（gst-inspect / gst-launch）
     obs-studio                                   # OBS Studio 录屏/推流（niri DMA-BUF 兼容）
+
+    # ---- Wine 兼容层 ----
+    winePackages.unstableFull                    # Wine Windows 兼容层（完整版，含所有依赖）
+    winetricks                                   # Wine 辅助脚本（安装 DLL/组件）
 
     # ---- 代理 ----
     daed                                         # eBPF 内核态代理 + Web 管理面板
