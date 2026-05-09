@@ -157,6 +157,7 @@ let
     // ==========================================================================
     spawn-at-startup "fcitx5"                                      // 启动输入法
     spawn-sh-at-startup "dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP=niri GSETTINGS_SCHEMA_DIR"
+    spawn-sh-at-startup "wl-paste --watch cliphist store"          // 剪贴板历史守护进程（Mod+Alt+V 查询）
 
     // ==========================================================================
     // 全局背景模糊设置
