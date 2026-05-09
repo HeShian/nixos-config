@@ -62,6 +62,7 @@
     wget                                         # HTTP/FTP 文件下载
     curl                                         # HTTP 命令行工具
     unzip                                        # ZIP 解压工具
+    unrar                                        # RAR 解压工具（Thunar 右键解压依赖）
     p7zip                                        # 7z 压缩/解压支持
     xarchiver                                    # GTK 归档管理器（Thunar 右键解压依赖）
     thunar-archive-plugin                        # Thunar 右键归档菜单插件
