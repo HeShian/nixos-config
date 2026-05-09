@@ -8,7 +8,7 @@
 #   配置内容：
 #   - Thunar：Xfce 轻量文件管理器
 #   - thunar-volman：可移动设备自动挂载
-#   - thunar-archive-plugin：右键压缩/解压集成
+#   - thunar-archive-plugin：右键压缩/解压集成（含 xarchiver.tap —— 见 overlays/default.nix）
 #   - xfconf：Xfce 设置存储后端（Thunar 依赖）
 #   - gvfs：虚拟文件系统（挂载/回收站/网络文件系统）
 #   - dconf：GNOME/GTK 应用的设置存储

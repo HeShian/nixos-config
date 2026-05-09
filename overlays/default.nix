@@ -23,6 +23,47 @@ final: prev: {
   });
 
   # ============================================================================
+  # thunar-archive-plugin —— 注入 xarchiver.tap
+  #
+  #   thunar-archive-plugin 通过 .tap 包装脚本调用归档管理器。
+  #   插件扫描 $(libexecdir)/thunar-archive-plugin/ 目录，
+  #   根据 MIME 类型查找匹配的 .desktop 文件，再匹配同名的 .tap 文件。
+  #
+  #   xarchiver 已安装 xarchiver.desktop 作为默认归档管理器，
+  #   但 thunar-archive-plugin 上游未包含 xarchiver.tap。
+  #   此 overlay 在 thunar-archive-plugin 构建后注入 xarchiver.tap，
+  #   使 Thunar 右键菜单的「解压到此处」「压缩」等功能正常工作。
+  #
+  #   .tap 文件接收三个参数：
+  #     $1 = 动作（create / extract-here / extract-to）
+  #     $2 = 建议目录
+  #     $@ = 文件列表
+  # ============================================================================
+  thunar-archive-plugin = prev.thunar-archive-plugin.overrideAttrs (old: {
+    postInstall = (old.postInstall or "") + ''
+      cp ${prev.writeShellScript "xarchiver.tap" ''
+        action=$1; shift;
+        folder=$1; shift;
+        case $action in
+          create)
+            exec xarchiver -c "$@"
+            ;;
+          extract-here)
+            exec xarchiver -x "$folder" "$@"
+            ;;
+          extract-to)
+            exec xarchiver -e "$@"
+            ;;
+          *)
+            echo "Unsupported action '$action'" >&2
+            exit 1
+            ;;
+        esac
+      ''} $out/libexec/thunar-archive-plugin/xarchiver.tap
+    '';
+  });
+
+  # ============================================================================
   # 引入自定义软件包
   #   pkgs/default.nix 中定义了本项目的自定义包（如 bilibili-tui）。
   #   通过 overlay 机制注入到 nixpkgs 中，之后可像系统包一样使用。
