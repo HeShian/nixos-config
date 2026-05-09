@@ -69,6 +69,7 @@
     thunar-archive-plugin                        # Thunar 右键归档菜单插件
     opencode                                     # AI 编码代理（终端版）
     hardinfo2                                    # 系统信息与基准测试工具（硬件检测/性能评估）
+    tree                                         # 目录树可视化工具
 
     # ---- 开发运行时 ----
     nodejs                                       # JavaScript/TypeScript 运行时
