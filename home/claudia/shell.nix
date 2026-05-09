@@ -283,6 +283,10 @@
       cursor_shape block
       # Shell 集成（禁用光标闪烁）
       shell_integration no-cursor
+      # 放行 Ctrl+Shift+C 给终端内程序（如 nvim 内复制到剪贴板）
+      #   ⚠️ kitty 不再拦截此组合键用于自身复制，
+      #   在终端中复制可用 Shift+Insert 粘贴 / Ctrl+Shift+Insert 选词模式
+      map ctrl+shift+c no_op
     '';
   };
 }

@@ -48,6 +48,49 @@
       # ---- Telegram 链接 ----
       "x-scheme-handler/tg" = "org.telegram.desktop.desktop";
       "x-scheme-handler/tonsite" = "org.telegram.desktop.desktop";
+
+      # ---- 文本文件 → Neovim（在 kitty 终端中打开） ----
+      #   通用文本
+      "text/plain" = "nvim.desktop";
+      "text/x-readme" = "nvim.desktop";
+      "text/x-log" = "nvim.desktop";
+      #   编程语言源码
+      "text/x-shellscript" = "nvim.desktop";
+      "text/x-python" = "nvim.desktop";
+      "text/x-csrc" = "nvim.desktop";
+      "text/x-c++src" = "nvim.desktop";
+      "text/x-c" = "nvim.desktop";
+      "text/x-chdr" = "nvim.desktop";
+      "text/x-c++hdr" = "nvim.desktop";
+      "text/x-makefile" = "nvim.desktop";
+      "text/x-nix" = "nvim.desktop";
+      "text/x-lua" = "nvim.desktop";
+      "text/x-rust" = "nvim.desktop";
+      "text/x-go" = "nvim.desktop";
+      "text/x-java" = "nvim.desktop";
+      "text/x-javascript" = "nvim.desktop";
+      "text/x-typescript" = "nvim.desktop";
+      "text/css" = "nvim.desktop";
+      "text/x-html" = "nvim.desktop";
+      "text/x-sql" = "nvim.desktop";
+      #   配置文件格式
+      "text/x-toml" = "nvim.desktop";
+      "text/x-yaml" = "nvim.desktop";
+      "text/x-json" = "nvim.desktop";
+      "text/x-ini" = "nvim.desktop";
+      "text/x-diff" = "nvim.desktop";
+      "text/x-patch" = "nvim.desktop";
+      #   标记语言
+      "text/x-markdown" = "nvim.desktop";
+      "text/x-rst" = "nvim.desktop";
+      "text/x-tex" = "nvim.desktop";
+      #   其他格式
+      "application/json" = "nvim.desktop";
+      "application/x-shellscript" = "nvim.desktop";
+      "application/x-python" = "nvim.desktop";
+      "application/xml" = "nvim.desktop";
+      "application/x-yaml" = "nvim.desktop";
+      "inode/x-empty" = "nvim.desktop";
     };
   };
 
