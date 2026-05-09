@@ -76,52 +76,61 @@ sudo nix flake update nixpkgs
 
 ```
 /etc/nixos/
-├── flake.nix                      # 🔰 Flake 入口 —— 声明 inputs + outputs
-├── flake.lock                     # 依赖锁定文件（自动生成）
-├── opencode.jsonc                 # ✨ OpenCode AI 配置（含 nixos MCP + skills 注册）
-├── AGENTS.md                      # AI 助手行为指南
+├── flake.nix                          # 🔰 Flake 入口 —— 声明 inputs + outputs
+├── flake.lock                         # 依赖锁定文件（自动生成）
+├── opencode.jsonc                     # ✨ OpenCode AI 配置（含 nixos MCP + skills 注册）
+├── AGENTS.md                          # AI 助手行为指南
 ├── .gitignore
-├── .opencode/skills/              # 📖 项目级 skill（AI 行为规范）
-│   └── nixos-config-guide.md      #   目录结构 + 中文注释规范
-├── hosts/westwood/                # 🖥️ 主机系统配置
-│   ├── configuration.nix          #   系统入口（import 所有子模块）
-│   ├── hardware-configuration.nix #   [自动生成] 硬件配置（勿修改代码，可加注释头）
-│   ├── networking.nix             #   网络：主机名、NetworkManager、SSH
-│   ├── locale.nix                 #   本地化：时区、Locale、Fcitx5+Rime 输入法
-│   ├── hardware.nix               #   硬件：systemd-boot、NVIDIA Optimus、蓝牙、zram+swap
-│   ├── desktop.nix                #   桌面：GDM、niri WM、DMS Shell、PipeWire
-│   ├── packages.nix               #   系统级软件包 + 服务（Firefox/Steam/libvirtd/daed）
-│   └── flatpak.nix                #   Flatpak + 中科大 USTC 镜像
-├── home/claudia/                  # 👤 用户 claudia 配置
-│   ├── default.nix                #   HM 入口（imports + home.packages + MPV 配置）
-│   ├── shell.nix                  #   fish + starship + zoxide + kitty
-│   ├── git.nix                    #   Git 配置（用户信息、别名、忽略规则）
-│   ├── nvim.nix                   #   CookNixvim（基于 Nixvim 的模块化 Neovim）
-│   ├── niri.nix                   #   niri WM 键绑定 + 窗口规则 + 动画（KDL）
-│   ├── fcitx5.nix                 #   Fcitx5 输入法 + DMS 动态配色同步
-│   ├── fuzzel.nix                 #   Fuzzel 启动器 + DMS 配色同步
-│   ├── gtk-sync.nix               #   DMS → GTK 深浅主题同步 + Remmina 包装
-│   ├── dms-fix.nix                #   DMS 启动主题修复（自动深浅切换）
-│   ├── xdg.nix                    #   XDG 基础（mimeapps、user-dirs、Xresources）
-│   ├── packages.nix               #   用户级软件包
-│   ├── mpv.nix                    #   MPV 视频播放器配置
-│   └── thunar.nix                 #   Thunar 桌面集成（exo-open、xfconf）
-├── modules/                       # 📦 可复用模块
-│   ├── nixos/                     #   NixOS 系统模块（跨主机复用）
-│   │   └── common.nix             #     通用配置：镜像源、用户、sudo 免密、Nix GC
-│   └── home/                      #   Home Manager 模块（跨用户复用）
-├── overlays/                      # 🧩 软件包覆盖
-│   └── default.nix                #   openldap 修补 + 引入自定义包
-├── pkgs/                          # 📦 自定义包
-│   ├── default.nix                #   包集合入口（overlay 形式）
-│   └── bilibili-tui/              #   B 站 TUI 客户端（Rust）
-│       └── default.nix
-├── lib/                           # 🔧 自定义辅助函数库
+├── .opencode/skills/
+│   └── nixos-config-guide.md          # 📖 项目级 skill（目录结构 + 中文注释规范）
+├── hosts/westwood/                    # 🖥️ 主机系统配置
+│   ├── configuration.nix              #   系统入口（import 所有子模块）
+│   ├── hardware-configuration.nix     #   [自动生成] 硬件配置（勿修改代码，可加注释头）
+│   ├── boot.nix                       #   引导：systemd-boot UEFI 引导加载器
+│   ├── nvidia.nix                     #   显卡：NVIDIA Optimus PRIME Render Offload
+│   ├── bluetooth.nix                  #   蓝牙：bluez 协议栈
+│   ├── swap.nix                       #   交换：zram（优先）+ swapfile（后备）
+│   ├── networking.nix                 #   网络：主机名、NetworkManager、SSH
+│   ├── locale.nix                     #   本地化：时区、Locale、Fcitx5+Rime 输入法
+│   ├── desktop.nix                    #   桌面：GDM、niri WM、DMS Shell、Qt、Portal
+│   ├── pipewire.nix                   #   音频：PipeWire + WirePlumber 服务
+│   ├── thunar.nix                     #   文件：Thunar 文件管理器 + gvfs + dconf
+│   ├── fonts.nix                      #   字体：JetBrainsMono + Noto CJK + Emoji + fontconfig
+│   ├── packages.nix                   #   软件包：Firefox、Steam、开发工具等
+│   ├── services.nix                   #   服务：libvirtd 虚拟化、daed 代理、v2raya
+│   └── flatpak.nix                    #   Flatpak + 中科大 USTC 镜像
+├── home/claudia/                      # 👤 用户 claudia 配置
+│   ├── default.nix                    #   HM 入口（imports + 基本设置）
+│   ├── shell.nix                      #   fish + starship + zoxide + kitty
+│   ├── ghostty.nix                    #   Ghostty 终端模拟器（GPU 加速，匹配 Kitty 配置）
+│   ├── fastfetch.nix                  #   Fastfetch 系统信息显示（Catnap 风格，终端启动自动运行）
+│   ├── git.nix                        #   Git 配置（用户信息、别名、忽略规则）
+│   ├── nvim.nix                       #   CookNixvim（基于 Nixvim 的模块化 Neovim）
+│   ├── niri.nix                       #   niri WM 键绑定 + 窗口规则 + 动画（KDL）
+│   ├── xdg.nix                        #   XDG 基础（mimeapps、user-dirs、Xresources）
+│   ├── fcitx5.nix                     #   Fcitx5 输入法 + DMS 动态配色同步
+│   ├── fuzzel.nix                     #   Fuzzel 启动器 + DMS 配色同步
+│   ├── gtk-sync.nix                   #   DMS → GTK 深浅主题同步 + Remmina 包装
+│   ├── dms-fix.nix                    #   DMS 启动主题修复（SIGUSR1 触发 QML 重载）
+│   ├── packages.nix                   #   用户级软件包
+│   ├── mpv.nix                        #   MPV 视频播放器配置（GPU-Next + NVDEC 硬解 + Bilibili 弹幕）
+│   └── thunar.nix                     #   Thunar 桌面集成（文件模板、uca.xml、exo-open、xfconf）
+├── modules/                           # 📦 可复用模块
+│   ├── nixos/                         #   NixOS 系统模块（跨主机复用）
+│   │   └── common.nix                 #     通用配置：镜像源、用户、sudo 免密、Nix GC
+│   └── home/                          #   Home Manager 模块（跨用户复用）
+├── overlays/                          # 🧩 软件包覆盖
+│   └── default.nix                    #   openldap 修补 + thunar-archive-plugin xarchiver.tap + 引入自定义包
+├── pkgs/                              # 📦 自定义包
+│   ├── default.nix                    #   包集合入口（overlay 形式）
+│   └── bilibili-tui/
+│       └── default.nix                #   B 站 TUI 客户端
+├── lib/                               # 🔧 自定义辅助函数库（预留）
 │   └── default.nix
-├── secrets/                       # 🔒 敏感配置（占位，未来用于 agenix/sops-nix）
+├── secrets/                           # 🔒 敏感配置（占位，未来 agenix/sops-nix）
 │   └── .gitkeep
-└── reference/                     # 参考文件（非 Nix 管理）
-    └── dms/                       # DMS (DankMaterialShell) 配置
+└── reference/                         # 参考文件（非 Nix 管理）
+    └── dms/
         ├── settings.json
         └── firefox.css
 ```
@@ -270,7 +279,7 @@ Fcitx5 候选框主题会自动跟随 DMS 壁纸配色（通过 `dms-fcitx5-sync
 nvidia-offload glxinfo | grep "OpenGL renderer"
 ```
 
-如果命令不存在，确认 `hardware.nix` 中 `offload.enableOffloadCmd = true`。
+如果命令不存在，确认 `nvidia.nix` 中 `offload.enableOffloadCmd = true`。
 
 ### 代理服务
 
