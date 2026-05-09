@@ -37,10 +37,13 @@ sudo nixos-generate-config --show-hardware-config > /tmp/hardware-configuration.
 # 3. 重建系统（NixOS + Home Manager 一起部署）
 sudo nixos-rebuild switch --flake /etc/nixos#westwood
 
-# 4. 安装 Flatpak 应用（系统级已配置好 USTC 镜像源）
-flatpak install flathub cn.wps.wps_365
-flatpak install flathub eu.betterbird.Betterbird
-flatpak install flathub io.github.kolunmi.Bazaar
+# 4. 安装 Flatpak 应用（一键部署，系统级已配置好 USTC 镜像源）
+flatpak install -y flathub \
+  cn.wps.wps_365 \
+  eu.betterbird.Betterbird \
+  io.github.kolunmi.Bazaar \
+  com.github.tchx84.Flatseal \
+  net.eudic.dict
 
 # 5. 复现 DMS 桌面 Shell 配置
 cp /etc/nixos/reference/dms/settings.json ~/.config/DankMaterialShell/settings.json
@@ -166,17 +169,19 @@ sudo nix flake update nixpkgs
 flatpak install flathub <应用ID>
 ```
 
+
 ## Flatpak 应用
 
 以下 Flatpak 应用通过 `flatpak install flathub` 手动安装（不在 Nix 管理范围内）：
-
 | 应用 | ID | 说明 |
 |------|-----|------|
 | WPS 365 | `cn.wps.wps_365` | WPS Office 办公套件 |
 | Betterbird | `eu.betterbird.Betterbird` | 邮件客户端（Thunderbird 分支） |
 | Bazaar | `io.github.kolunmi.Bazaar` | 应用发现与管理工具 |
+| Flatseal | `com.github.tchx84.Flatseal` | Flatpak 权限管理（可视化 Permission 编辑器） |
+| 欧路词典 | `net.eudic.dict` | 跨平台词典与翻译工具 |
 
-安装命令见上方「部署步骤」第 4 步。
+安装命令见上方「部署步骤」第 4 步，支持一键安装全部应用。
 
 ## DMS 配置复现
 
