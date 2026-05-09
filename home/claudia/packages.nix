@@ -52,6 +52,7 @@
     kdePackages.okular          # KDE 文档查看器（PDF/EPUB/CBZ/DjVu）
     readest                     # 现代电子书阅读器（EPUB/MOBI/PDF）
     novelwriter                 # 小说写作编辑器（纯文本，专注长文创作）
+    z-library-desktop          # Z-Library 桌面客户端（电子书搜索与下载）
 
     # --- 远程桌面 & 文件传输 ---
     remmina                    # 远程桌面客户端（RDP/VNC/SSH）
