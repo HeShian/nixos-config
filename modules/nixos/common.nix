@@ -38,6 +38,7 @@
       "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
     ];
     auto-optimise-store = true;                               # store 自动去重优化
+    experimental-features = [ "nix-command" "flakes" ];          # 启用 nix 命令（nix run/search 等）和 Flake 支持
   };
 
   # ============================================================================
