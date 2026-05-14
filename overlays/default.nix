@@ -64,6 +64,38 @@ final: prev: {
   });
 
   # ============================================================================
+  # novelwriter —— 编译 Qt 翻译文件，启用中文界面
+  #
+  #   novelWriter 使用 Qt 的 .ts/.qm 翻译系统。源码仓库的 i18n/ 目录包含
+  #   各语言的 .ts 翻译源文件（含 nw_zh_CN.ts），但 nixpkgs 的默认构建流程
+  #   不会调用 lrelease 将其编译为 .qm 二进制文件。
+  #
+  #   应用启动时 config.py 会检查 assets/i18n/nw_${locale}.qm 是否存在：
+  #     hasLocale = safeExists(self._nwLangPath / f"nw_{QLocale.system().name()}.qm")
+  #     self._qLocale = QLocale.system() if hasLocale else QLocale("en_GB")
+  #   当 .qm 文件缺失时，无论系统 locale 如何设置，都会回退到英文（en_GB）。
+  #
+  #   本 overlay 在构建阶段添加：
+  #     1. qt6.qttools（提供 lrelease 命令）→ 编译 .ts → .qm
+  #     2. 将编译后的 .qm 文件复制到包的 assets/i18n/ 目录
+  # ============================================================================
+  novelwriter = prev.novelwriter.overrideAttrs (old: {
+    nativeBuildInputs = (old.nativeBuildInputs or []) ++ [ final.qt6.qttools ];
+
+    postInstall = (old.postInstall or "") + ''
+      # 编译 Qt 翻译源文件（.ts → .qm）
+      #   lrelease 将 XML 格式的 .ts 文件编译为 Qt 可加载的 .qm 二进制文件
+      lrelease i18n/nw_*.ts
+
+      # 将编译好的 .qm 文件部署到包的 assets/i18n/ 目录
+      #   novelWriter 运行时从此目录加载翻译文件
+      dest="$out/${final.python3.sitePackages}/novelwriter/assets/i18n"
+      mkdir -p "$dest"
+      cp i18n/nw_*.qm "$dest"/
+    '';
+  });
+
+  # ============================================================================
   # 引入自定义软件包
   #   pkgs/default.nix 中定义了本项目的自定义包（如 bilibili-tui）。
   #   通过 overlay 机制注入到 nixpkgs 中，之后可像系统包一样使用。
