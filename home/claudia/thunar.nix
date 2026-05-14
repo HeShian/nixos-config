@@ -235,11 +235,21 @@
   # ============================================================================
   # Thunar 默认终端设置为 ghostty
   #   在每次 activation 时确保 xfconf 属性正确
-  # ============================================================================
+  # ---------------------------------------------------------------------------
+  # setThunarTerminal：在 activation 阶段设置 Thunar 默认终端
+  #
+  #   xfconf-query 需要用户 D-Bus 会话（DBUS_SESSION_BUS_ADDRESS 环境变量）。
+  #   在系统启动时（home-manager-claudia.service）D-Bus 可能尚未就绪，
+  #   导致 xfconf-query 退出非零。为避免阻断整个 HM activation，
+  #   将错误静默处理 —— 桌面会话启动时 DMS/GTK sync 服务会重新设置此值。
+  # ---------------------------------------------------------------------------
   home.activation.setThunarTerminal = lib.hm.dag.entryAfter ["writeBoundary"] ''
-    ${pkgs.xfconf}/bin/xfconf-query -c thunar -p /default-terminal-emulator -s ghostty 2>/dev/null || \
-    ${pkgs.xfconf}/bin/xfconf-query -c thunar -p /default-terminal-emulator -n -t string -s ghostty
-    ${pkgs.xfconf}/bin/xfconf-query -c xfce4-appfinder -p /terminal-emulator/emulator -s ghostty 2>/dev/null || \
-    ${pkgs.xfconf}/bin/xfconf-query -c xfce4-appfinder -p /terminal-emulator/emulator -n -t string -s ghostty
+    if [[ -n "$DBUS_SESSION_BUS_ADDRESS" ]]; then
+      ${pkgs.xfconf}/bin/xfconf-query -c thunar -p /default-terminal-emulator -s ghostty 2>/dev/null || \
+      ${pkgs.xfconf}/bin/xfconf-query -c thunar -p /default-terminal-emulator -n -t string -s ghostty 2>/dev/null
+      ${pkgs.xfconf}/bin/xfconf-query -c xfce4-appfinder -p /terminal-emulator/emulator -s ghostty 2>/dev/null || \
+      ${pkgs.xfconf}/bin/xfconf-query -c xfce4-appfinder -p /terminal-emulator/emulator -n -t string -s ghostty 2>/dev/null
+    fi
+    true  # 永不因 xfconf 不可用而阻断 HM activation
   '';
 }
