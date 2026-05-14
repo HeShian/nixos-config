@@ -305,7 +305,7 @@
   #   UseDarkTheme=False：DMS 已通过递增主题名实现深浅切换。
   # ============================================================================
   home.activation.lockFcitx5ClassicuiTheme = lib.hm.dag.entryAfter ["writeBoundary"] ''
-    CFG="/home/claudia/.config/fcitx5/conf/classicui.conf"
+    CFG="${config.home.homeDirectory}/.config/fcitx5/conf/classicui.conf"
     mkdir -p "$(dirname "$CFG")"
     cat > "$CFG" <<- 'THEMEEOF'
 # 注意：首行 Theme=default 必须无 section 头，因为 fcitx5-gtk 的 ClassicUIConfig
@@ -339,7 +339,7 @@ THEMEEOF
   # fcitx5 禁用冲突的 UI 插件 —— 确保所有输入法前端都使用 classicui 渲染
   # ============================================================================
   home.activation.disableFcitx5ConflictUI = lib.hm.dag.entryAfter ["writeBoundary"] ''
-    FCITX_CFG="/home/claudia/.config/fcitx5/config"
+    FCITX_CFG="${config.home.homeDirectory}/.config/fcitx5/config"
     mkdir -p "$(dirname "$FCITX_CFG")"
 
     if [ ! -f "$FCITX_CFG" ]; then
@@ -399,15 +399,15 @@ FCITXEOF
   # ============================================================================
   home.activation.cleanupDmsFcitx5Templates = lib.hm.dag.entryAfter ["writeBoundary"] ''
     # 删除旧版 DMS matugen 模板（不再需要）
-    rm -f /home/claudia/.config/dms/templates/fcitx5-theme.conf
-    rm -f /home/claudia/.config/dms/templates/fcitx5.toml
+    rm -f ${config.home.homeDirectory}/.config/dms/templates/fcitx5-theme.conf
+    rm -f ${config.home.homeDirectory}/.config/dms/templates/fcitx5.toml
 
     # 删除 DMS matugen 渲染输出的孤立目录
     # 当前脚本直接生成 dms-N/theme.conf，不再使用此目录
-    rm -rf /home/claudia/.local/share/fcitx5/themes/dms
+    rm -rf ${config.home.homeDirectory}/.local/share/fcitx5/themes/dms
 
     # 清理已部署的旧版本 sync 脚本的锁文件和计数器
     # （保留 dms-N 目录让 classicui 有主题可加载）
-    rm -f /home/claudia/.local/share/fcitx5/themes/.sync.lock
+    rm -f ${config.home.homeDirectory}/.local/share/fcitx5/themes/.sync.lock
   '';
 }

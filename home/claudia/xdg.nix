@@ -130,7 +130,7 @@
   #   XWayland 下运行的 X11 应用读取 ~/.Xresources 获取光标设置。
   #   此配置确保 XWayland 应用的光标与 Wayland 原生应用一致。
   # ============================================================================
-  home.file."./.Xresources" = {
+  home.file.".Xresources" = {
     text = ''
       Xcursor.theme: Adwaita
       Xcursor.size: 24

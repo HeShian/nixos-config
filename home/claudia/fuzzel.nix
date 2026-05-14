@@ -101,7 +101,7 @@
       selection-match=$(cf primary)
       counter=$(cf on_surface_variant)
       border=$(cf outline_variant)
-      XXXX
+
     '';
   };
 
