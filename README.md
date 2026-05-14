@@ -1,43 +1,63 @@
-# ❄️ Westwood NixOS 配置
+# ❄️ Westwood — 模块化 NixOS 配置
 
-HeShian 的个人 NixOS 配置，采用 Flake + Home Manager 模块化架构。
+基于 Flake + Home Manager 的个人 NixOS 配置，遵循声明式、可复现的原则。
+配置涵盖系统引导、硬件驱动、桌面环境、终端工具链、输入法、动态主题等全栈体验。
 
-| 主机 | 架构 | 状态版本 | 频道 |
-|------|------|----------|------|
-| westwood | x86_64-linux | 25.11 | nixpkgs-unstable |
+| 主机 | 架构 | 状态版本 | nixpkgs 频道 |
+|------|------|----------|-------------|
+| westwood | x86_64-linux | 25.11 | unstable |
 
-## 硬件配置
+## 目录
+
+- [硬件概览](#硬件概览)
+- [快速开始](#快速开始)
+- [桌面环境](#桌面环境)
+- [项目结构](#项目结构)
+- [添加软件包](#添加软件包)
+- [Flatpak 应用](#flatpak-应用)
+- [DMS 配置复现](#dms-配置复现)
+- [自定义包](#自定义包)
+- [约束与注意事项](#约束与注意事项)
+- [常见问题](#常见问题)
+- [参考](#参考)
+
+## 硬件概览
 
 | 组件 | 型号 |
 |------|------|
 | CPU | Intel (Kaby Lake, UHD 610 iGPU) |
 | GPU | NVIDIA GeForce GTX 1650 Ti Mobile (Turing) |
-| 方案 | PRIME Render Offload（默认集显，按需 `nvidia-offload` 调用独显） |
+| 方案 | PRIME Render Offload — 默认集显，`nvidia-offload` 按需调用独显 |
 | 内存 | 16 GB |
 | 存储 | NVMe SSD |
 
-## 快速部署
+## 快速开始
 
-### 前提条件
+### 前置条件
 
-- 已安装 NixOS（可参考 [nixos.org](https://nixos.org/download)）
+- 已安装 NixOS（参考 [nixos.org](https://nixos.org/download)）
 - 已启用 Flake 支持（NixOS 24.11+ 默认开启）
+- 具备 `sudo` 权限
 
-### 部署步骤
+### 第一次部署
 
 ```bash
-# 1. 克隆仓库
-sudo mv /etc/nixos /etc/nixos.bak  # 备份原有配置
+# 1. 备份原有配置
+sudo mv /etc/nixos /etc/nixos.bak
+
+# 2. 克隆本仓库
 sudo git clone https://github.com/HeShian/nixos-config.git /etc/nixos
 
-# 2. 生成硬件配置（宿主机）
-sudo nixos-generate-config --show-hardware-config > /tmp/hardware-configuration.nix
-# 将生成的 hardware-configuration.nix 替换到 hosts/westwood/ 下
+# 3. 生成本机硬件配置（每台机器必须重新生成）
+sudo nixos-generate-config --show-hardware-config \
+  > /tmp/hardware-configuration.nix
+sudo cp /tmp/hardware-configuration.nix \
+  /etc/nixos/hosts/westwood/hardware-configuration.nix
 
-# 3. 重建系统（NixOS + Home Manager 一起部署）
+# 4. 重建系统（NixOS + Home Manager 一并部署）
 sudo nixos-rebuild switch --flake /etc/nixos#westwood
 
-# 4. 安装 Flatpak 应用（一键部署，系统级已配置好 USTC 镜像源）
+# 5. 安装 Flatpak 应用
 flatpak install -y flathub \
   cn.wps.wps_365 \
   eu.betterbird.Betterbird \
@@ -45,24 +65,28 @@ flatpak install -y flathub \
   com.github.tchx84.Flatseal \
   net.eudic.dict
 
-# 5. 复现 DMS 桌面 Shell 配置
-cp /etc/nixos/reference/dms/settings.json ~/.config/DankMaterialShell/settings.json
-cp /etc/nixos/reference/dms/firefox.css    ~/.config/DankMaterialShell/firefox.css
+# 6. 复现 DMS 桌面 Shell 配置
+mkdir -p ~/.config/DankMaterialShell
+cp /etc/nixos/reference/dms/settings.json ~/.config/DankMaterialShell/
+cp /etc/nixos/reference/dms/firefox.css    ~/.config/DankMaterialShell/
 ```
 
-> **注意**：`hardware-configuration.nix` 由 `nixos-generate-config` 根据实际硬件自动生成，
-> 每台机器的文件系统 UUID、内核模块列表等都不同，**部署前必须重新生成**。
+> **⚠️ 关键提示**：`hardware-configuration.nix` 包含磁盘 UUID、内核模块列表等机器特有信息，
+> 由 `nixos-generate-config` 根据实际硬件自动生成。**每台机器部署前必须重新生成此文件**，
+> 否则可能导致系统无法引导。
 
 ### 日常维护
 
 ```bash
-# 系统 + 用户配置一起更新（需要 sudo）
+# 拉取最新配置并重建系统
+cd /etc/nixos
+git pull
 sudo nixos-rebuild switch --flake /etc/nixos#westwood
 
-# 仅更新用户级配置（不需要 sudo）
+# 仅更新用户级配置（无需 sudo）
 home-manager switch --flake /etc/nixos#claudia
 
-# 干运行（验证配置不实际变更）
+# 干运行 —— 验证配置语法，不实际变更
 sudo nixos-rebuild dry-activate --flake /etc/nixos#westwood
 
 # 更新 flake.lock（所有依赖）
@@ -72,230 +96,206 @@ sudo nix flake update
 sudo nix flake update nixpkgs
 ```
 
-## 目录结构
-
-```
-/etc/nixos/
-├── flake.nix                          # 🔰 Flake 入口 —— 声明 inputs + outputs
-├── flake.lock                         # 依赖锁定文件（自动生成）
-├── opencode.jsonc                     # ✨ OpenCode AI 配置（含 nixos MCP + skills 注册）
-├── AGENTS.md                          # AI 助手行为指南
-├── .gitignore
-├── .opencode/skills/
-│   └── nixos-config-guide.md          # 📖 项目级 skill（目录结构 + 中文注释规范）
-├── hosts/westwood/                    # 🖥️ 主机系统配置
-│   ├── configuration.nix              #   系统入口（import 所有子模块）
-│   ├── hardware-configuration.nix     #   [自动生成] 硬件配置（勿修改代码，可加注释头）
-│   ├── boot.nix                       #   引导：systemd-boot UEFI 引导加载器
-│   ├── nvidia.nix                     #   显卡：NVIDIA Optimus PRIME Render Offload
-│   ├── bluetooth.nix                  #   蓝牙：bluez 协议栈
-│   ├── swap.nix                       #   交换：zram（优先）+ swapfile（后备）
-│   ├── networking.nix                 #   网络：主机名、NetworkManager、SSH
-│   ├── locale.nix                     #   本地化：时区、Locale、Fcitx5+Rime 输入法
-│   ├── desktop.nix                    #   桌面：GDM、niri WM、DMS Shell、Qt、Portal
-│   ├── pipewire.nix                   #   音频：PipeWire + WirePlumber 服务
-│   ├── thunar.nix                     #   文件：Thunar 文件管理器 + gvfs + dconf
-│   ├── fonts.nix                      #   字体：JetBrainsMono + Noto CJK + Emoji + fontconfig
-│   ├── packages.nix                   #   软件包：Firefox、Steam、开发工具等
-│   ├── services.nix                   #   服务：libvirtd 虚拟化、daed 代理、v2raya
-│   └── flatpak.nix                    #   Flatpak + 中科大 USTC 镜像
-├── home/claudia/                      # 👤 用户 claudia 配置
-│   ├── default.nix                    #   HM 入口（imports + 基本设置）
-│   ├── shell.nix                      #   fish + starship + zoxide + kitty
-│   ├── ghostty.nix                    #   Ghostty 终端模拟器（GPU 加速，匹配 Kitty 配置）
-│   ├── fastfetch.nix                  #   Fastfetch 系统信息显示（Catnap 风格，终端启动自动运行）
-│   ├── git.nix                        #   Git 配置（用户信息、别名、忽略规则）
-│   ├── nvim.nix                       #   CookNixvim（基于 Nixvim 的模块化 Neovim）
-│   ├── niri.nix                       #   niri WM 键绑定 + 窗口规则 + 动画（KDL）
-│   ├── xdg.nix                        #   XDG 基础（mimeapps、user-dirs、Xresources）
-│   ├── fcitx5.nix                     #   Fcitx5 输入法 + DMS 动态配色同步
-│   ├── fuzzel.nix                     #   Fuzzel 启动器 + DMS 配色同步
-│   ├── gtk-sync.nix                   #   DMS → GTK 深浅主题同步 + Remmina 包装
-│   ├── dms-fix.nix                    #   DMS 启动主题修复（SIGUSR1 触发 QML 重载）
-│   ├── packages.nix                   #   用户级软件包
-│   ├── mpv.nix                        #   MPV 视频播放器配置（GPU-Next + NVDEC 硬解 + Bilibili 弹幕）
-│   └── thunar.nix                     #   Thunar 桌面集成（文件模板、uca.xml、exo-open、xfconf）
-├── modules/                           # 📦 可复用模块
-│   ├── nixos/                         #   NixOS 系统模块（跨主机复用）
-│   │   └── common.nix                 #     通用配置：镜像源、用户、sudo 免密、Nix GC
-│   └── home/                          #   Home Manager 模块（跨用户复用）
-├── overlays/                          # 🧩 软件包覆盖
-│   └── default.nix                    #   openldap 修补 + thunar-archive-plugin xarchiver.tap + 引入自定义包
-├── pkgs/                              # 📦 自定义包
-│   ├── default.nix                    #   包集合入口（overlay 形式）
-│   └── bilibili-tui/
-│       └── default.nix                #   B 站 TUI 客户端
-├── lib/                               # 🔧 自定义辅助函数库（预留）
-│   └── default.nix
-├── secrets/                           # 🔒 敏感配置（占位，未来 agenix/sops-nix）
-│   └── .gitkeep
-└── reference/                         # 参考文件（非 Nix 管理）
-    └── dms/
-        ├── settings.json
-        └── firefox.css
-```
-
 ## 桌面环境
 
-此配置使用 GDM 作为登录管理器：
+Westwood 的桌面从底层到上层由以下组件构成：
 
-| 层次 | 组件 | 说明 |
+| 层次 | 组件 | 职责 |
 |------|------|------|
 | 登录管理器 | GDM | 图形登录界面 |
-| 窗口管理器 | niri (Scrollable-tiling) | Wayland 合成器，Vim 风格快捷键 |
-| 桌面 Shell | DMS (DankMaterialShell) | 运行在 niri 之上的动态主题 Shell |
-| 音频 | PipeWire + WirePlumber | 兼容 ALSA/PulseAudio |
+| 窗口管理器 | niri | Scrollable-tiling Wayland 合成器，Vim 风格快捷键 |
+| 桌面 Shell | DMS (DankMaterialShell) | 动态主题 Shell，材质设计风格 |
+| 音频 | PipeWire + WirePlumber | 兼容 ALSA / PulseAudio / JACK |
 | 文件管理器 | Thunar | 轻量 Xfce 文件管理器 |
-| 应用启动器 | fuzzel | Mod+Z 启动 |
+| 应用启动器 | fuzzel | Mod+Z 唤起，Wayland 原生 |
 
-### niri 快捷键
+### niri 常用快捷键
 
 | 快捷键 | 功能 |
 |--------|------|
-| Mod+T | 打开终端（Kitty） |
-| Mod+Q | 关闭窗口 |
-| Mod+H/J/K/L | 焦点移动（Vim 风格） |
-| Mod+Shift+H/J/K/L | 窗口移动 |
-| Mod+F | 最大化列 |
-| Mod+1~9 | 切换工作区 |
-| Mod+R | 切换列宽度预设 |
-| Mod+V | 切换窗口浮动 |
-| Mod+Z | 应用启动器（fuzzel） |
-| Mod+Alt+A | 截图 |
-| Print | 截图 |
-| Mod+Shift+S | 截图标注（grim + satty） |
+| `Mod+Return` | 打开 Ghostty 终端 |
+| `Mod+T` | 打开 Kitty 终端 |
+| `Mod+Z` | 应用启动器 (fuzzel) |
+| `Mod+B` | Firefox 浏览器 |
+| `Mod+Q` | 关闭窗口 |
+| `Mod+H/J/K/L` | 焦点移动（Vim 风格） |
+| `Mod+Ctrl+H/J/K/L` | 窗口移动 |
+| `Mod+F` | 最大化列 |
+| `Mod+V` | 切换窗口浮动 |
+| `Mod+R` | 切换列宽预设 |
+| `Mod+1~9` | 切换工作区 |
+| `Mod+U / Mod+I` | 工作区上下切换 |
+| `Mod+O / Mod+G` | 概览模式 |
+| `Mod+Alt+A / Print` | 区域截图 |
+| `Mod+Shift+S` | 截图并标注 (grim + satty) |
+| `Mod+Alt+V` | 剪贴板历史 (cliphist + fuzzel) |
+
+## 项目结构
+
+```
+/etc/nixos/
+├── flake.nix                    # 🔰 Flake 入口 — inputs + outputs
+├── flake.lock                   # 依赖锁定（自动生成）
+├── AGENTS.md                    # AI 助手行为指南
+├── hosts/westwood/              # 🖥️ 主机系统配置（westwood）
+│   ├── configuration.nix        #   系统入口，imports 所有子模块
+│   ├── hardware-configuration.nix # [自动生成] 硬件 — 禁止编辑
+│   ├── boot.nix                 #   systemd-boot UEFI 引导
+│   ├── nvidia.nix               #   NVIDIA Optimus PRIME 混合显卡
+│   ├── bluetooth.nix            #   bluez 蓝牙协议栈
+│   ├── swap.nix                 #   zram + swapfile 交换空间
+│   ├── networking.nix           #   主机名、NetworkManager、SSH
+│   ├── locale.nix               #   时区、locale、Fcitx5+Rime 输入法
+│   ├── desktop.nix              #   GDM、niri WM、DMS Shell、Qt、Portal
+│   ├── pipewire.nix             #   PipeWire + WirePlumber 音频
+│   ├── thunar.nix               #   Thunar 文件管理器
+│   ├── fonts.nix                #   字体 + fontconfig 渲染
+│   ├── packages.nix             #   系统级软件包
+│   ├── services.nix             #   系统服务（libvirtd / daed / v2raya）
+│   └── flatpak.nix              #   Flatpak + USTC 镜像
+├── home/claudia/                # 👤 用户 claudia 配置
+│   ├── default.nix              #   HM 入口，imports + 基本设置
+│   ├── shell.nix                #   fish + starship + zoxide + kitty
+│   ├── ghostty.nix              #   Ghostty 终端（GPU 加速 + 光标拖尾）
+│   ├── fastfetch.nix            #   Fastfetch 系统信息（Catnap 风格）
+│   ├── git.nix                  #   Git 全局配置
+│   ├── nvim.nix                 #   CookNixvim Neovim 发行版
+│   ├── niri.nix                 #   niri WM 键绑定 + 窗口规则 + 动画
+│   ├── xdg.nix                  #   XDG 基础（mimeapps / user-dirs / Xresources）
+│   ├── fcitx5.nix               #   Fcitx5 输入法 + DMS 配色同步
+│   ├── fuzzel.nix               #   Fuzzel 启动器 + DMS 配色同步
+│   ├── gtk-sync.nix             #   DMS → GTK 深浅主题同步
+│   ├── dms-fix.nix              #   DMS 启动主题修复
+│   ├── packages.nix             #   用户级软件包
+│   ├── mpv.nix                  #   MPV 视频播放器（硬解 + 弹幕）
+│   └── thunar.nix               #   Thunar 桌面集成
+├── modules/                     # 📦 可复用模块
+│   ├── nixos/common.nix         #   镜像源 / 用户 / sudo / Nix GC
+│   └── home/                    #   Home Manager 模块（预留）
+├── overlays/                    # 🧩 包覆盖（openldap 修补等）
+├── pkgs/                        # 📦 自定义包（bilibili-tui）
+├── lib/                         # 🔧 辅助函数库（预留）
+├── reference/                   # 📄 参考文件（DMS settings.json 等）
+└── secrets/                     # 🔒 敏感配置（预留）
+```
+
+### 设计原则
+
+- **职责分离**：每个 `.nix` 文件只管理一个功能领域
+- **入口聚合**：`configuration.nix` / `default.nix` 统一 import 子模块
+- **系统 vs 用户**：系统级配置在 `hosts/`，用户级在 `home/`
+- **共享 vs 专属**：跨主机公用的配置提取到 `modules/`
 
 ## 添加软件包
 
 ```bash
-# 系统级（所有用户可用）
+# 系统级（所有用户可用，需 sudo 重建）
 # 编辑 hosts/westwood/packages.nix → environment.systemPackages
 
 # 用户级（仅 claudia，无需 sudo）
-# 编辑 home/claudia/default.nix → home.packages
+# 编辑 home/claudia/packages.nix → home.packages
 
-# Flatpak 应用（系统级已配好 USTC 镜像源）
+# Flatpak 应用（系统级已配置 USTC 镜像源）
 flatpak install flathub <应用ID>
-```
 
+# 自定义包
+# 1. 创建 pkgs/<name>/default.nix
+# 2. 在 pkgs/default.nix 中注册
+# 3. overlays/default.nix 自动引入
+```
 
 ## Flatpak 应用
 
-以下 Flatpak 应用通过 `flatpak install flathub` 手动安装（不在 Nix 管理范围内）：
+以下应用通过 Flatpak 安装，独立于 Nix 包管理：
+
 | 应用 | ID | 说明 |
 |------|-----|------|
-| WPS 365 | `cn.wps.wps_365` | WPS Office 办公套件 |
+| WPS 365 | `cn.wps.wps_365` | 办公套件 |
 | Betterbird | `eu.betterbird.Betterbird` | 邮件客户端（Thunderbird 分支） |
-| Bazaar | `io.github.kolunmi.Bazaar` | 应用发现与管理工具 |
-| Flatseal | `com.github.tchx84.Flatseal` | Flatpak 权限管理（可视化 Permission 编辑器） |
-| 欧路词典 | `net.eudic.dict` | 跨平台词典与翻译工具 |
+| Bazaar | `io.github.kolunmi.Bazaar` | 应用发现与管理 |
+| Flatseal | `com.github.tchx84.Flatseal` | Flatpak 权限管理 |
+| 欧路词典 | `net.eudic.dict` | 跨平台词典 |
 
-安装命令见上方「部署步骤」第 4 步，支持一键安装全部应用。
+安装命令见上方[第一次部署](#第一次部署)第 5 步。
 
 ## DMS 配置复现
 
-DMS（DankMaterialShell）的完整配置保存在 `reference/dms/` 目录中，文件清单：
+DMS（DankMaterialShell）的完整配置保存在 `reference/dms/` 目录：
 
-| 文件 | 目标位置 | 说明 |
+| 文件 | 目标位置 | 内容 |
 |------|----------|------|
-| `reference/dms/settings.json` | `~/.config/DankMaterialShell/settings.json` | DMS 全部设置（主题、布局、插件等） |
-| `reference/dms/firefox.css` | `~/.config/DankMaterialShell/firefox.css` | Firefox 动态主题 CSS（matugen 生成） |
+| `reference/dms/settings.json` | `~/.config/DankMaterialShell/` | 主题、布局、插件等全部设置（500+ 项） |
+| `reference/dms/firefox.css` | `~/.config/DankMaterialShell/` | Firefox 动态主题 CSS（matugen 生成） |
 
-**复现方法**：新机器上 clone 仓库后，将参考文件复制到 DMS 配置目录：
-
-```bash
-mkdir -p ~/.config/DankMaterialShell
-cp /etc/nixos/reference/dms/settings.json ~/.config/DankMaterialShell/settings.json
-cp /etc/nixos/reference/dms/firefox.css    ~/.config/DankMaterialShell/firefox.css
-```
-
-复制后重新登录或重启 DMS 即可还原当前全部 DMS 桌面 Shell 配置（包括状态栏布局、动态主题、快捷键、字体等 500+ 项设置）。
+复现命令见[第一次部署](#第一次部署)第 6 步。复制后重新登录或重启 DMS 即可还原当前桌面 Shell 配置。
 
 ## 自定义包
 
-自定义包位于 `pkgs/` 目录，通过 `overlays/default.nix` 注入 nixpkgs：
+- **bilibili-tui**：Rust 编写的终端 B 站客户端，从源码构建。运行时依赖 mpv + yt-dlp + bdanmaku 弹幕插件。
 
-- **bilibili-tui**：GitHub 上的 Rust 终端 B 站客户端，从源码构建
+## 约束与注意事项
 
-添加步骤：
-1. 在 `pkgs/` 下创建包目录和 `default.nix`
-2. 在 `pkgs/default.nix` 中注册
-3. `overlays/default.nix` 会自动引入
-
-## 重要约束
-
-- **`hosts/westwood/hardware-configuration.nix`**：自动生成，**禁止手动编辑**
-- **`stateVersion`** 设为 `25.11`，**禁止修改**
-- **Home Manager** 接管以下文件，手动修改会被覆盖：
-  - `~/.bashrc`
-  - `~/.config/fish/`
-  - `~/.config/git/config`
-  - `~/.config/niri/config.kdl`
-  - `~/.config/kitty/kitty.conf`
-  - `~/.Xresources`
-  - `~/.config/mpv/mpv.conf`
-  - `~/.config/mimeapps.list`
-  - `~/.config/user-dirs.dirs`
-- **Overlay**：`openldap` 跳过了测试（`test017-syncreplication-refresh` 不稳定会导致 lutris 构建失败）
-- **fuzzel** 同时安装在系统级和用户级（系统级确保 PATH 可见）
-- **Qt 主题**通过 niri 环境变量 `QT_QPA_PLATFORMTHEME=gtk3` 控制
-- **蓝牙**由 DMS 通过 bluez 直接管理（未安装 blueman）
-- **Portal 后端**使用 GNOME 的 xdg-desktop-portal-gnome
+| 约束 | 说明 |
+|------|------|
+| `hardware-configuration.nix` | 自动生成，**禁止手动编辑** |
+| `stateVersion = "25.11"` | **禁止修改**，影响向后兼容行为 |
+| Home Manager 接管文件 | `~/.bashrc` `~/.config/fish/` `~/.config/git/config` `~/.config/niri/config.kdl` `~/.config/kitty/kitty.conf` `~/.Xresources` `~/.config/mpv/mpv.conf` `~/.config/mimeapps.list` `~/.config/user-dirs.dirs` — 手动编辑会被覆盖 |
+| NVIDIA 驱动 | 闭源内核模块（`nvidia-open` 不支持 GTX 1650 Ti） |
+| sudo 免密 | `wheelNeedsPassword = false` — 方便但降低安全性 |
+| 输入法 | Fcitx5 + Rime + 雾凇拼音，`GTK_IM_MODULE=fcitx` `QT_IM_MODULE=fcitx` |
+| 代理 | v2raya（用户态）+ daed（eBPF 内核态，Web 面板 :2023），互不干扰 |
+| overlay | `openldap` 跳过测试（`test017-syncreplication-refresh` 不稳定，导致 lutris 构建失败） |
+| Nix GC | 双层策略：自动删除 >7 天旧世代，之后保留最近 3 个世代 |
 
 ## 常见问题
 
-### Flatpak 安装失败 "无法从不信任的远程仓库提取"
+### Flatpak 安装失败："无法从不信任的远程仓库提取"
 
-此配置已内置修复：开机时自动下载 Flathub GPG 公钥并启用签名验证。
+系统已内置修复（开机自动配置 GPG 签名验证 + USTC 镜像）。如仍失败：
 
-如果仍然遇到，可手动修复：
 ```bash
 sudo flatpak remote-delete flathub --system
 curl -sL https://flathub.org/repo/flathub.gpg -o /tmp/flathub.gpg
-sudo flatpak remote-add --gpg-import=/tmp/flathub.gpg --system flathub https://mirrors.ustc.edu.cn/flathub
+sudo flatpak remote-add --gpg-import=/tmp/flathub.gpg --system flathub \
+  https://mirrors.ustc.edu.cn/flathub
 sudo flatpak remote-modify --url=https://mirrors.ustc.edu.cn/flathub flathub
 ```
 
-### 输入法无法使用
+### 输入法不工作
 
-确认 Fcitx5 环境变量已设置：
+确认环境变量是否正确加载：
+
 ```bash
-echo $GTK_IM_MODULE  # 应是 fcitx
-echo $QT_IM_MODULE   # 应是 fcitx
+echo $GTK_IM_MODULE  # 应为 fcitx
+echo $QT_IM_MODULE   # 应为 fcitx
 ```
 
-如果未生效，重新登录或检查 niri 环境变量配置。
+如果未生效，重新登录或在 niri 中运行 `fcitx5 -r` 重启输入法。
 
-Fcitx5 候选框主题会自动跟随 DMS 壁纸配色（通过 `dms-fcitx5-sync` 服务），
-切换壁纸或深浅模式后 1-2 秒内自动更新。如果主题未跟随变化，手动运行：
-```bash
-~/.local/bin/dms-fcitx5-sync
-```
+Fcitx5 候选框配色会自动跟随 DMS 壁纸主题变化（通过 `dms-fcitx5-sync` 服务）。
+如主题未跟随，手动触发：`~/.local/bin/dms-fcitx5-sync`
 
 ### NVIDIA 独显无法调用
 
-使用 `nvidia-offload` 命令：
 ```bash
 nvidia-offload glxinfo | grep "OpenGL renderer"
+# 应显示 NVIDIA GeForce GTX 1650 Ti
 ```
-
-如果命令不存在，确认 `nvidia.nix` 中 `offload.enableOffloadCmd = true`。
 
 ### 代理服务
 
-系统安装了两种代理：
+系统内置两种代理方案，可同时运行：
 
-| 工具 | 类型 | 管理地址 |
+| 工具 | 类型 | 管理方式 |
 |------|------|----------|
-| v2raya | 用户态代理 | — |
-| daed | eBPF 内核态代理 | http://localhost:2023 |
-
-两者互不干扰，可同时运行。
+| v2raya | 用户态 | 系统服务 + Web 面板 |
+| daed | eBPF 内核态 | 系统服务 + Web 面板 (localhost:2023) |
 
 ## 参考
 
 - [NixOS Manual](https://nixos.org/manual/nixos/stable/)
 - [Home Manager Manual](https://nix-community.github.io/home-manager/)
-- [niri WM Wiki](https://github.com/YaLTeR/niri/wiki)
+- [niri WM](https://github.com/YaLTeR/niri/wiki)
 - [DMS (DankMaterialShell)](https://github.com/nicemachine/DankMaterialShell)
 - [CookNixvim](https://github.com/Youthdreamer/CookNixvim)
+- [Nix Flakes Wiki](https://nixos.wiki/wiki/Flakes)
