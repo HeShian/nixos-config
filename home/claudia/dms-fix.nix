@@ -62,14 +62,14 @@
       Description = "Fix DMS startup theme by triggering QML reload";
       After = [ "dms.service" "graphical-session.target" ];
       Wants = [ "dms.service" ];
+      # 限制启动次数：启动阶段仅运行一次，失败不重试
+      StartLimitBurst = 3;
+      StartLimitIntervalSec = 60;
     };
     Service = {
       Type = "oneshot";
       ExecStart = "${config.home.homeDirectory}/.local/bin/dms-boot-theme-fix";
       Restart = "no";
-      # 避免启动时网络/IO波动导致失败，允许失败不阻断启动链
-      StartLimitBurst = 3;
-      StartLimitIntervalSec = 60;
     };
     Install = { WantedBy = [ "default.target" ]; };
   };

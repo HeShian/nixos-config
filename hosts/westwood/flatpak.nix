@@ -52,38 +52,33 @@
   systemd.services.flatpak-configure-ustc = {
     description = "配置 Flathub 远程仓库为 USTC 镜像（含 GPG 验证）";
     wantedBy = [ "multi-user.target" ];
-    after = [ "flatpak-system-helper.service" "network-online.target" ];
-    wants = [ "flatpak-system-helper.service" "network-online.target" ];
+    after = [ "flatpak-system-helper.service" ];
+    wants = [ "flatpak-system-helper.service" ];
     script = ''
       # 步骤 1：下载 Flathub 官方 GPG 公钥
-      #   flatpak 使用 GPG 签名验证每个应用的完整性，
-      #   没有此文件将无法验证应用包的来源可信性。
       ${pkgs.curl}/bin/curl -fLSs -o /tmp/flathub.gpg \
         https://flathub.org/repo/flathub.gpg 2>/dev/null
 
       # 步骤 2：添加名为 "flathub" 的远程仓库
-      #   注意：flatpak 会在添加后自动将 URL 纠正为官方地址
-      #   （dl.flathub.org），但这不影响后续步骤。
       ${pkgs.flatpak}/bin/flatpak remote-add \
         --gpg-import=/tmp/flathub.gpg \
         --if-not-exists --system flathub https://mirrors.ustc.edu.cn/flathub \
         >/dev/null 2>&1
 
       # 步骤 3：重新设置 URL 为 USTC 镜像
-      #   覆盖 flatpak 的自动 URL 纠正行为，
-      #   确保后续下载使用国内镜像加速。
       ${pkgs.flatpak}/bin/flatpak remote-modify \
         --url=https://mirrors.ustc.edu.cn/flathub flathub \
         >/dev/null 2>&1
 
-      # 清理：删除临时 GPG 密钥文件
       rm -f /tmp/flathub.gpg
     '';
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
-      StandardOutput = "null";                  # 禁止输出到控制台 —— 避免干扰 TUI 登录界面
-      StandardError = "null";                   # 禁止错误输出到控制台
+      Restart = "on-failure";
+      RestartSec = "30s";
+      StandardOutput = "null";
+      StandardError = "null";
     };
   };
 }

@@ -107,6 +107,8 @@
       Description = "Sync DMS wallpaper colors to GTK theme";
       After = [ "dms.service" ];
       Wants = [ "dms.service" ];
+      StartLimitBurst = 30;
+      StartLimitIntervalSec = 60;
     };
     Service = {
       Type = "oneshot";
@@ -116,8 +118,6 @@
         "${config.home.homeDirectory}/.local/bin/dms-gtk-sync"
       ];
       Restart = "no";
-      StartLimitBurst = 30;
-      StartLimitIntervalSec = 60;
     };
     Install = { WantedBy = [ "default.target" ]; };
   };

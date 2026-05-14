@@ -1,5 +1,18 @@
 { config, pkgs, lib, ... }:
 
+let
+  # ============================================================================
+  # 构建包含中文输入法 addon 的 fcitx5 包
+  #
+  #   pkgs.fcitx5 是基础包，不含 rime/pinyin 等中文输入法 addon。
+  #   fcitx5-with-addons 通过 addons 参数注入额外 addon 的 SO 库和 addon conf 文件，
+  #   合并为一个完整的 fcitx5 安装前缀。systemd 服务使用此包启动 daemon。
+  # ============================================================================
+  fcitx5Pkg = pkgs.qt6Packages.fcitx5-with-addons.override {
+    addons = with pkgs; [ fcitx5-rime kdePackages.fcitx5-chinese-addons ];
+  };
+in
+
 # ==============================================================================
 # Fcitx5 输入法配置 —— DMS 动态配色同步
 #
@@ -248,8 +261,15 @@
 
       sync
 
-      # 通知 fcitx5 重新加载配置
-      ${pkgs.fcitx5}/bin/fcitx5-remote -r 2>/dev/null || true
+      # 通知 fcitx5 重载配置 —— 不重启 daemon（避免打断正在进行的输入）
+      ${fcitx5Pkg}/bin/fcitx5-remote -r 2>/dev/null || true
+
+      # 消除 GNOME portal 强调色对 Wayland classicui 的覆盖
+      #   UseAccentColor=False 在 Wayland 前端可能不完全生效，
+      #   而 GNOME portal 默认 accent-color=orange 会覆盖
+      #   HighlightColor 等字段。将 accent 设为 slate（中性灰），
+      #   确保 DMS 主题颜色优先。
+      ${pkgs.glib}/bin/gsettings set org.gnome.desktop.interface accent-color 'slate' 2>/dev/null || true
 
       # 清理旧主题目录：保留最近 10 个 dms-* 目录，防止残留过多
       ls -dt "$THEMES_DIR"/dms-[0-9]* 2>/dev/null | tail -n +11 | xargs rm -rf
@@ -261,13 +281,17 @@
   # ============================================================================
 
   systemd.user.services.dms-fcitx5-sync = {
-    Unit = { Description = "Sync DMS wallpaper colors to fcitx5 theme"; };
+    Unit = {
+      Description = "Sync DMS wallpaper colors to fcitx5 theme";
+      # 限制频繁触发：启动后 30 秒内最多 3 次，防止 DMS 初始化时
+      # dms-colors.json 多次写入导致 fcitx5 反复被 reload（SIGTERM）
+      StartLimitBurst = 3;
+      StartLimitIntervalSec = 30;
+    };
     Service = {
       Type = "oneshot";
       ExecStart = "${config.home.homeDirectory}/.local/bin/dms-fcitx5-sync";
       Restart = "no";
-      StartLimitBurst = 30;
-      StartLimitIntervalSec = 30;
     };
     # WantedBy 不在 service 上 —— 仅由 path 单元触发
   };
@@ -286,8 +310,42 @@
         "%h/.cache/DankMaterialShell/dms-colors.json"
         "%h/.local/state/DankMaterialShell/session.json"
       ];
+      PathModified = [
+        "%h/.cache/DankMaterialShell/dms-colors.json"
+        "%h/.local/state/DankMaterialShell/session.json"
+      ];
     };
     Install = { WantedBy = [ "default.target" ]; };
+  };
+
+  # ============================================================================
+  # fcitx5 daemon —— systemd 用户服务管理
+  #
+  #   将 fcitx5 daemon 由 niri spawn-at-startup 改为 systemd 用户服务管理，
+  #   好处：
+  #   1. dms-fcitx5-sync 可通过 systemctl --user restart fcitx5 完全重启 daemon，
+  #      确保 classicui 重读 classicui.conf 和 theme.conf，绕过 Wayland 前端的
+  #      主题缓存问题（ReloadConfig 不一定触发 classicui 完整重读 Theme 名变更）
+  #   2. daemon 崩溃后 systemd 自动重启（Restart=on-failure）
+  #   3. 与 DMS 等 systemd 管理的桌面服务统一生命周期
+  #
+  #   BindsTo=niri.service：niri 退出时自动停止 fcitx5
+  #   After=niri.service：在 niri 就绪后启动，确保 WAYLAND_DISPLAY 已设置
+  # ============================================================================
+  systemd.user.services.fcitx5 = {
+    Unit = {
+      Description = "Fcitx5 Input Method Daemon";
+      BindsTo = [ "niri.service" ];
+      After = [ "niri.service" "graphical-session.target" ];
+      PartOf = [ "graphical-session.target" ];
+    };
+    Service = {
+      Type = "simple";
+      ExecStart = "${fcitx5Pkg}/bin/fcitx5";
+      Restart = "on-failure";
+      RestartSec = 3;
+    };
+    Install = { WantedBy = [ "graphical-session.target" ]; };
   };
 
   # ============================================================================
@@ -305,6 +363,12 @@
   #   UseDarkTheme=False：DMS 已通过递增主题名实现深浅切换。
   # ============================================================================
   home.activation.lockFcitx5ClassicuiTheme = lib.hm.dag.entryAfter ["writeBoundary"] ''
+    # 消除 GNOME portal 强调色对 Wayland classicui 的覆盖
+    #   GNOME portal 默认 accent-color=orange，即使 UseAccentColor=False
+    #   也可能在 Wayland 前端上覆盖 HighlightColor 等字段。
+    #   设为 slate（中性灰）确保 DMS 主题色优先。
+    ${pkgs.glib}/bin/gsettings set org.gnome.desktop.interface accent-color 'slate' 2>/dev/null || true
+
     CFG="${config.home.homeDirectory}/.config/fcitx5/conf/classicui.conf"
     mkdir -p "$(dirname "$CFG")"
     cat > "$CFG" <<- 'THEMEEOF'

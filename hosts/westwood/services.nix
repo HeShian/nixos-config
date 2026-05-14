@@ -58,8 +58,19 @@
   #
   #   v2raya（用户态）和 daed（内核态）可以共存，
   #   两者使用不同的端口和路由规则，互不干扰。
+  #
+  #   性能优化：通过 unitConfig 直接覆盖 daed 上游服务的启动排序依赖，
+  #   移除 network-online.target 等待，避免阻塞 boot chain。
   # ============================================================================
   systemd.packages = with pkgs; [ daed ];
+  systemd.services.daed = {
+    unitConfig = {
+      # 清空上游 daed 服务的 After/Wants 网络依赖
+      # daed 使用 eBPF，可在网络就绪后自动适配
+      After = lib.mkForce "";
+      Wants = lib.mkForce "";
+    };
+  };
   systemd.services.daed.wantedBy = [ "multi-user.target" ];
   systemd.services.daed.environment.DAE_LOCATION_ASSET =
     "${pkgs.symlinkJoin {

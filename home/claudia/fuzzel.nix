@@ -104,21 +104,17 @@
 
     '';
   };
-
   systemd.user.services.dms-fuzzel-sync = {
-    Unit = { Description = "Sync DMS wallpaper colors to fuzzel theme"; };
+    Unit = {
+      Description = "Sync DMS wallpaper colors to fuzzel theme";
+      StartLimitBurst = 3;
+      StartLimitIntervalSec = 30;
+    };
     Service = {
       Type = "oneshot";
       ExecStart = "${config.home.homeDirectory}/.local/bin/dms-fuzzel-sync";
-      StartLimitBurst = 30;
-      StartLimitIntervalSec = 30;
     };
   };
-
-  # ---------------------------------------------------------------------------
-  # 路径监听说明（同 fcitx5.nix）：
-  #   - cache/dms-colors.json：DMS 壁纸配色的主输出文件
-  #   - session.json：深浅模式状态
   #   - state/dms-colors.json 已移除：壁纸切换时不会更新，监听它会导致用过时配色同步
   # ---------------------------------------------------------------------------
   systemd.user.paths.dms-fuzzel-sync = {
