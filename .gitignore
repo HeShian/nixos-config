@@ -11,3 +11,8 @@ result-*
 # direnv
 .direnv/
 # Machine-specific (not tracked)
+# Sisyphus working directory
+.sisyphus/
+
+# Nix build result symlink
+result
